@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../utils/constants.dart';
 import '../screens/task_detail_screen.dart';
-import 'priority_indicator.dart';
 
 class TaskTile extends StatelessWidget {
   final Task task;
@@ -12,19 +11,34 @@ class TaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: PriorityIndicator(priority: task.priority),
-      title: Text(task.title),
-      subtitle: Text(taskTypeText(task.taskType)),
-      trailing: Icon(Icons.chevron_right),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => TaskDetailScreen(taskId: task.id),
+    return Card(
+      margin: EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      elevation: 2,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: priorityColor(task.priority),
+          child: Icon(
+            task.taskType == TaskType.Task ? Icons.task : Icons.repeat,
+            color: Colors.white,
           ),
-        );
-      },
+        ),
+        title: Text(
+          task.title,
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          '${taskTypeText(task.taskType)} • ${priorityText(task.priority)}',
+        ),
+        trailing: Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => TaskDetailScreen(taskId: task.id),
+            ),
+          );
+        },
+      ),
     );
   }
 }

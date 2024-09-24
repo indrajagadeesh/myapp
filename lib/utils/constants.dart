@@ -1,4 +1,5 @@
 // lib/utils/constants.dart
+import 'package:flutter/material.dart';
 
 import '../models/task.dart';
 
@@ -16,5 +17,23 @@ String priorityText(TaskPriority priority) {
 }
 
 String taskTypeText(TaskType taskType) {
-  return taskType == TaskType.Task ? 'Task' : 'Routine';
+  switch (taskType) {
+    case TaskType.Task:
+      return 'Task';
+    case TaskType.Routine:
+      return 'Routine';
+  }
+}
+
+Color priorityColor(TaskPriority priority) {
+  switch (priority) {
+    case TaskPriority.Regular:
+      return Colors.green;
+    case TaskPriority.Important:
+      return Colors.blue;
+    case TaskPriority.VeryImportant:
+      return Colors.orange;
+    case TaskPriority.Urgent:
+      return Colors.red;
+  }
 }
