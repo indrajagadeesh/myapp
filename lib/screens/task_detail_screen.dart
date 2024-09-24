@@ -2,7 +2,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/task.dart';
 import '../providers/task_provider.dart';
 import '../widgets/subtask_list.dart';
 import '../widgets/stopwatch_widget.dart';
