@@ -92,21 +92,24 @@ class _StopwatchWidgetState extends State<StopwatchWidget> {
 
   void _startTimer() {
     _stopwatch.start();
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) => setState(() {}));
+    _timer =
+        Timer.periodic(Duration(seconds: 1), (timer) => setState(() {}));
   }
 
   void _stopTimer() {
     _stopwatch.stop();
     _timer?.cancel();
     widget.task.timeSpent += _stopwatch.elapsed;
-    Provider.of<TaskProvider>(context, listen: false).updateTask(widget.task);
+    Provider.of<TaskProvider>(context, listen: false)
+        .updateTask(widget.task);
     _stopwatch.reset();
   }
 
   void _resetTimer() {
     _stopwatch.reset();
     widget.task.timeSpent = Duration.zero;
-    Provider.of<TaskProvider>(context, listen: false).updateTask(widget.task);
+    Provider.of<TaskProvider>(context, listen: false)
+        .updateTask(widget.task);
     setState(() {});
   }
 }

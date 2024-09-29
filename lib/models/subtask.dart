@@ -1,3 +1,5 @@
+// lib/models/subtask.dart
+
 import 'package:hive/hive.dart';
 
 part 'subtask.g.dart';

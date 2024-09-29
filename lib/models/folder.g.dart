@@ -19,20 +19,17 @@ class FolderAdapter extends TypeAdapter<Folder> {
     return Folder(
       id: fields[0] as String,
       name: fields[1] as String,
-      taskIds: (fields[2] as List).cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Folder obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(2)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.name)
-      ..writeByte(2)
-      ..write(obj.taskIds);
+      ..write(obj.name);
   }
 
   @override

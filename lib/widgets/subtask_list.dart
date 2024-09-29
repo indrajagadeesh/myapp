@@ -89,7 +89,8 @@ class _SubtaskListState extends State<SubtaskList> {
           ),
         );
       });
-      Provider.of<TaskProvider>(context, listen: false).updateTask(widget.task);
+      Provider.of<TaskProvider>(context, listen: false)
+          .updateTask(widget.task);
       _controller.clear();
     }
   }

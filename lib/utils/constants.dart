@@ -1,6 +1,6 @@
 // lib/utils/constants.dart
-import 'package:flutter/material.dart';
 
+import 'package:flutter/material.dart';
 import '../models/task.dart';
 
 String priorityText(TaskPriority priority) {

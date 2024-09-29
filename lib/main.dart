@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'providers/task_provider.dart';
 import 'providers/folder_provider.dart';
 import 'screens/home_screen.dart';
-import 'utils/theme.dart'; // Ensure this import is present
+import 'utils/theme.dart';
 import 'models/task.dart';
 import 'models/subtask.dart';
 import 'models/folder.dart';
@@ -19,13 +19,19 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
 
+  // Register Hive adapters
   Hive.registerAdapter(TaskTypeAdapter());
   Hive.registerAdapter(TaskPriorityAdapter());
   Hive.registerAdapter(TaskAdapter());
   Hive.registerAdapter(SubtaskAdapter());
   Hive.registerAdapter(FolderAdapter());
 
+  // Initialize Notification Service
   await NotificationService.init();
+
+  // Open Hive boxes
+  await Hive.openBox<Task>('tasks');
+  await Hive.openBox<Folder>('folders');
 
   runApp(TaskFlowApp());
 }
@@ -36,15 +42,15 @@ class TaskFlowApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<TaskProvider>(
-          create: (_) => TaskProvider()..init(),
+          create: (_) => TaskProvider(),
         ),
         ChangeNotifierProvider<FolderProvider>(
-          create: (_) => FolderProvider()..init(),
+          create: (_) => FolderProvider(),
         ),
       ],
       child: MaterialApp(
         title: 'TaskFlow',
-        theme: appTheme, // Updated to use appTheme
+        theme: appTheme,
         home: HomeScreen(),
         routes: {
           '/add-task': (context) => AddTaskScreen(),

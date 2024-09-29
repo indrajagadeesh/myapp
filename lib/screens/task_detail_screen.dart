@@ -57,6 +57,15 @@ class TaskDetailScreen extends StatelessWidget {
                         ),
                       ],
                     ),
+                    SizedBox(height: 16),
+                    if (task.isCompleted)
+                      Text(
+                        'Completed on: ${task.completedDate}',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -65,6 +74,29 @@ class TaskDetailScreen extends StatelessWidget {
             SubtaskList(task: task),
             // Stopwatch
             StopwatchWidget(task: task),
+            // Mark as Completed Button
+            if (!task.isCompleted)
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                    taskProvider.markTaskCompleted(task);
+                    Navigator.pop(context);
+                  },
+                  child: Text('Mark as Completed'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+                    textStyle:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

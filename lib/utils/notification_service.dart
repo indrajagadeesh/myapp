@@ -1,61 +1,71 @@
 // lib/utils/notification_service.dart
 
-import 'package:flutter_local_notifications/flutter_local_notifications.dart' as fln;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz;
 import '../models/task.dart';
 
 class NotificationService {
-  static final _notifications = fln.FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
 
-  static Future init() async {
-    final androidSettings = fln.AndroidInitializationSettings('@mipmap/ic_launcher');
-    final darwinSettings = fln.DarwinInitializationSettings();
+  static Future<void> init() async {
+    // Initialize time zones
+    tz.initializeTimeZones();
 
-    final settings = fln.InitializationSettings(
+    // Android initialization
+    var androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    // iOS (Darwin) initialization
+    var darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    var settings = InitializationSettings(
       android: androidSettings,
       iOS: darwinSettings,
-      macOS: null,
     );
 
     await _notifications.initialize(settings);
   }
 
-  static Future scheduleNotification(Task task) async {
+  static Future<void> scheduleNotification(Task task) async {
     if (task.scheduledTime == null) return;
 
-    final androidDetails = fln.AndroidNotificationDetails(
+    var androidDetails = AndroidNotificationDetails(
       'taskflow_channel',
       'TaskFlow Notifications',
-      channelDescription: 'Reminder notifications for TaskFlow app',
-      importance: fln.Importance.max,
-      priority: fln.Priority.high,
-      playSound: task.hasAlarm,
+      channelDescription: 'Notifications for scheduled tasks',
+      importance: Importance.max,
+      priority: Priority.high,
     );
 
-    final darwinDetails = fln.DarwinNotificationDetails();
+    var darwinDetails = DarwinNotificationDetails();
 
-    final details = fln.NotificationDetails(
+    var details = NotificationDetails(
       android: androidDetails,
       iOS: darwinDetails,
-      macOS: null,
     );
 
     await _notifications.zonedSchedule(
-      task.id.hashCode,
+      task.key.hashCode, // Unique ID for the notification
       'Task Reminder',
       task.title,
       tz.TZDateTime.from(task.scheduledTime!, tz.local),
       details,
       androidAllowWhileIdle: true,
       uiLocalNotificationDateInterpretation:
-          fln.UILocalNotificationDateInterpretation.absoluteTime,
+          UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: task.taskType == TaskType.Routine
-          ? fln.DateTimeComponents.time
+          ? DateTimeComponents.time
           : null,
     );
   }
 
-  static Future cancelNotification(int id) async {
+  static Future<void> cancelNotification(int id) async {
     await _notifications.cancel(id);
   }
 }

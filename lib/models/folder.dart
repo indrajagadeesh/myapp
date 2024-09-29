@@ -1,3 +1,5 @@
+// lib/models/folder.dart
+
 import 'package:hive/hive.dart';
 
 part 'folder.g.dart';
@@ -10,12 +12,8 @@ class Folder extends HiveObject {
   @HiveField(1)
   String name;
 
-  @HiveField(2)
-  List<String> taskIds;
-
   Folder({
     required this.id,
     required this.name,
-    this.taskIds = const [],
   });
 }

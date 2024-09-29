@@ -15,6 +15,8 @@ class AddTaskScreen extends StatefulWidget {
 
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  // Form fields
   String title = '';
   String description = '';
   TaskType taskType = TaskType.Task;
@@ -23,13 +25,24 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   bool hasAlarm = false;
   String? selectedFolderId;
 
+  // Providers
+  late TaskProvider taskProvider;
+  late FolderProvider folderProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize the providers here
+    taskProvider = Provider.of<TaskProvider>(context, listen: false);
+    folderProvider = Provider.of<FolderProvider>(context, listen: false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-    final folderProvider = Provider.of<FolderProvider>(context, listen: false);
-
     return Scaffold(
-      appBar: AppBar(title: Text('Add Task')),
+      appBar: AppBar(
+        title: Text('Add Task'),
+      ),
       body: Padding(
         padding: EdgeInsets.all(16.0),
         child: Form(
@@ -65,7 +78,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 _buildPrioritySelector(),
                 SizedBox(height: 16),
                 // Folder Selector
-                _buildFolderSelector(folderProvider),
+                _buildFolderSelector(),
                 SizedBox(height: 16),
                 // Scheduled Time Picker
                 _buildScheduledTimePicker(),
@@ -75,8 +88,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   onPressed: _saveTask,
                   child: Text('Save Task'),
                   style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white,
                     backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
                     padding:
                         EdgeInsets.symmetric(horizontal: 32.0, vertical: 12.0),
                     textStyle:
@@ -152,7 +165,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
-  Widget _buildFolderSelector(FolderProvider folderProvider) {
+  Widget _buildFolderSelector() {
     return DropdownButtonFormField<String>(
       decoration: InputDecoration(
         labelText: 'Folder',
@@ -166,6 +179,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         );
       }).toList(),
       onChanged: (value) => setState(() => selectedFolderId = value),
+      hint: Text('Select Folder (Optional)'),
+      isExpanded: true,
     );
   }
 
@@ -247,7 +262,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         hasAlarm: hasAlarm,
         folderId: selectedFolderId,
       );
-      Provider.of<TaskProvider>(context, listen: false).addTask(newTask);
+      taskProvider.addTask(newTask);
       Navigator.pop(context);
     }
   }

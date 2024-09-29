@@ -1,37 +1,59 @@
+// lib/providers/task_provider.dart
+
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/task.dart';
 import '../utils/notification_service.dart';
 
-class TaskProvider with ChangeNotifier {
+class TaskProvider extends ChangeNotifier {
   late Box<Task> _taskBox;
+  List<Task> tasks = [];
 
-  List<Task> get tasks => _taskBox.values.toList();
+  TaskProvider() {
+    _init();
+  }
 
-  Future<void> init() async {
-    _taskBox = await Hive.openBox<Task>('tasks');
+  Future<void> _init() async {
+    // Open the 'tasks' box
+    _taskBox = Hive.box<Task>('tasks');
+    // Load existing tasks
+    tasks = _taskBox.values.toList();
     notifyListeners();
   }
 
   void addTask(Task task) {
-    _taskBox.put(task.id, task);
-    if (task.scheduledTime != null) {
+    _taskBox.add(task);
+    tasks = _taskBox.values.toList();
+    if (task.hasAlarm && task.scheduledTime != null) {
       NotificationService.scheduleNotification(task);
     }
     notifyListeners();
   }
 
   void updateTask(Task task) {
-    _taskBox.put(task.id, task);
-    if (task.scheduledTime != null) {
-      NotificationService.scheduleNotification(task);
-    }
+    task.save();
+    tasks = _taskBox.values.toList();
     notifyListeners();
   }
 
-  void deleteTask(String id) {
-    _taskBox.delete(id);
-    NotificationService.cancelNotification(id.hashCode);
+  void deleteTask(String taskId) {
+    final task = tasks.firstWhere((t) => t.id == taskId);
+    if (task.hasAlarm) {
+      NotificationService.cancelNotification(task.key as int);
+    }
+    task.delete();
+    tasks = _taskBox.values.toList();
+    notifyListeners();
+  }
+
+  void markTaskCompleted(Task task) {
+    task.isCompleted = true;
+    task.completedDate = DateTime.now();
+    task.save();
+    if (task.hasAlarm) {
+      NotificationService.cancelNotification(task.key as int);
+    }
+    tasks = _taskBox.values.toList();
     notifyListeners();
   }
 }

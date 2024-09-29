@@ -5,26 +5,6 @@ import 'subtask.dart';
 
 part 'task.g.dart';
 
-@HiveType(typeId: 0)
-enum TaskType {
-  @HiveField(0)
-  Task,
-  @HiveField(1)
-  Routine,
-}
-
-@HiveType(typeId: 1)
-enum TaskPriority {
-  @HiveField(0)
-  Regular,
-  @HiveField(1)
-  Important,
-  @HiveField(2)
-  VeryImportant,
-  @HiveField(3)
-  Urgent,
-}
-
 @HiveType(typeId: 2)
 class Task extends HiveObject {
   @HiveField(0)
@@ -60,17 +40,41 @@ class Task extends HiveObject {
   @HiveField(10)
   bool isCompleted;
 
+  @HiveField(11)
+  DateTime? completedDate;
+
   Task({
     required this.id,
     required this.title,
-    required this.description,
-    required this.taskType,
+    this.description = '',
+    this.taskType = TaskType.Task,
     this.scheduledTime,
     this.hasAlarm = false,
-    required this.priority,
+    this.priority = TaskPriority.Regular,
     this.subtasks = const [],
     this.timeSpent = Duration.zero,
     this.folderId,
     this.isCompleted = false,
+    this.completedDate,
   });
+}
+
+@HiveType(typeId: 0)
+enum TaskType {
+  @HiveField(0)
+  Task,
+  @HiveField(1)
+  Routine,
+}
+
+@HiveType(typeId: 1)
+enum TaskPriority {
+  @HiveField(0)
+  Regular,
+  @HiveField(1)
+  Important,
+  @HiveField(2)
+  VeryImportant,
+  @HiveField(3)
+  Urgent,
 }
