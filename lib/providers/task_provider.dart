@@ -3,10 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/task.dart';
+import '../models/folder.dart';
 import '../utils/notification_service.dart';
+import 'package:uuid/uuid.dart';
 
 class TaskProvider extends ChangeNotifier {
   late Box<Task> _taskBox;
+  late Box<Folder> _folderBox;
   List<Task> tasks = [];
   List<Task> routines = [];
 
@@ -16,6 +19,7 @@ class TaskProvider extends ChangeNotifier {
 
   Future<void> _init() async {
     _taskBox = Hive.box<Task>('tasks');
+    _folderBox = Hive.box<Folder>('folders');
     tasks = _taskBox.values.where((task) => task.taskType == TaskType.Task).toList();
     routines = _taskBox.values.where((task) => task.taskType == TaskType.Routine).toList();
     notifyListeners();
@@ -39,9 +43,21 @@ class TaskProvider extends ChangeNotifier {
   }
 
   String _getDefaultFolderId() {
-    // Assuming a default folder exists with a known ID
-    // Replace 'default_folder_id' with actual default folder ID logic
-    return 'default_folder_id';
+    // Fetch the default folder from Hive or create one if it doesn't exist
+    final defaultFolder = _folderBox.values.firstWhere(
+      (folder) => folder.isDefault,
+      orElse: () {
+        // Create a default folder if it doesn't exist
+        final newFolder = Folder(
+          id: Uuid().v4(),
+          name: 'Default',
+          isDefault: true,
+        );
+        _folderBox.add(newFolder);
+        return newFolder;
+      },
+    );
+    return defaultFolder.id;
   }
 
   void updateTask(Task task) {

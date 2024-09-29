@@ -8,7 +8,7 @@ part of 'folder.dart';
 
 class FolderAdapter extends TypeAdapter<Folder> {
   @override
-  final int typeId = 4;
+  final int typeId = 3;
 
   @override
   Folder read(BinaryReader reader) {
@@ -19,17 +19,20 @@ class FolderAdapter extends TypeAdapter<Folder> {
     return Folder(
       id: fields[0] as String,
       name: fields[1] as String,
+      isDefault: fields[2] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Folder obj) {
     writer
-      ..writeByte(2)
+      ..writeByte(3)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.name);
+      ..write(obj.name)
+      ..writeByte(2)
+      ..write(obj.isDefault);
   }
 
   @override
