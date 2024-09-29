@@ -35,8 +35,6 @@ class _StopwatchWidgetState extends State<StopwatchWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final taskProvider = Provider.of<TaskProvider>(context);
-
     return Card(
       margin: EdgeInsets.all(16),
       elevation: 2,

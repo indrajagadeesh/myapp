@@ -37,3 +37,14 @@ Color priorityColor(TaskPriority priority) {
       return Colors.red;
   }
 }
+
+String frequencyText(Frequency frequency) {
+  switch (frequency) {
+    case Frequency.Daily:
+      return 'Daily';
+    case Frequency.Weekly:
+      return 'Weekly';
+    case Frequency.Monthly:
+      return 'Monthly';
+  }
+}

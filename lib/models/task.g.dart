@@ -29,13 +29,15 @@ class TaskAdapter extends TypeAdapter<Task> {
       folderId: fields[9] as String?,
       isCompleted: fields[10] as bool,
       completedDate: fields[11] as DateTime?,
+      isRepetitive: fields[12] as bool,
+      frequency: fields[13] as Frequency,
     );
   }
 
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -59,7 +61,11 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(10)
       ..write(obj.isCompleted)
       ..writeByte(11)
-      ..write(obj.completedDate);
+      ..write(obj.completedDate)
+      ..writeByte(12)
+      ..write(obj.isRepetitive)
+      ..writeByte(13)
+      ..write(obj.frequency);
   }
 
   @override
@@ -157,6 +163,50 @@ class TaskPriorityAdapter extends TypeAdapter<TaskPriority> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is TaskPriorityAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class FrequencyAdapter extends TypeAdapter<Frequency> {
+  @override
+  final int typeId = 5;
+
+  @override
+  Frequency read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return Frequency.Daily;
+      case 1:
+        return Frequency.Weekly;
+      case 2:
+        return Frequency.Monthly;
+      default:
+        return Frequency.Daily;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, Frequency obj) {
+    switch (obj) {
+      case Frequency.Daily:
+        writer.writeByte(0);
+        break;
+      case Frequency.Weekly:
+        writer.writeByte(1);
+        break;
+      case Frequency.Monthly:
+        writer.writeByte(2);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FrequencyAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

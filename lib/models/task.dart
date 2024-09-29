@@ -43,6 +43,12 @@ class Task extends HiveObject {
   @HiveField(11)
   DateTime? completedDate;
 
+  @HiveField(12)
+  bool isRepetitive;
+
+  @HiveField(13)
+  Frequency frequency;
+
   Task({
     required this.id,
     required this.title,
@@ -56,6 +62,8 @@ class Task extends HiveObject {
     this.folderId,
     this.isCompleted = false,
     this.completedDate,
+    this.isRepetitive = false,
+    this.frequency = Frequency.Daily,
   });
 }
 
@@ -77,4 +85,14 @@ enum TaskPriority {
   VeryImportant,
   @HiveField(3)
   Urgent,
+}
+
+@HiveType(typeId: 5)
+enum Frequency {
+  @HiveField(0)
+  Daily,
+  @HiveField(1)
+  Weekly,
+  @HiveField(2)
+  Monthly,
 }

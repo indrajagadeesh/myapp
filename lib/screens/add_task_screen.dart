@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/task.dart';
+import '../models/folder.dart';
 import '../providers/task_provider.dart';
 import '../providers/folder_provider.dart';
 import '../utils/constants.dart';
@@ -39,9 +40,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final folders = folderProvider.folders;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add Task'),
+        title: Text('Add ${taskType == TaskType.Task ? 'Task' : 'Routine'}'),
       ),
       body: Padding(
         padding: EdgeInsets.all(16.0),
@@ -78,7 +81,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 _buildPrioritySelector(),
                 SizedBox(height: 16),
                 // Folder Selector
-                _buildFolderSelector(),
+                _buildFolderSelector(folders),
                 SizedBox(height: 16),
                 // Scheduled Time Picker
                 _buildScheduledTimePicker(),
@@ -86,7 +89,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _saveTask,
-                  child: Text('Save Task'),
+                  child: Text('Save ${taskType == TaskType.Task ? 'Task' : 'Routine'}'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.white,
@@ -120,6 +123,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             onChanged: (TaskType? value) {
               setState(() {
                 taskType = value!;
+                // Reset repetitive settings when switching to Task
+                if (taskType == TaskType.Task) {
+                  hasAlarm = false;
+                  scheduledTime = null;
+                }
               });
             },
           ),
@@ -165,19 +173,25 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
-  Widget _buildFolderSelector() {
+  Widget _buildFolderSelector(List<Folder> folders) {
     return DropdownButtonFormField<String>(
       decoration: InputDecoration(
         labelText: 'Folder',
         border: OutlineInputBorder(),
       ),
       value: selectedFolderId,
-      items: folderProvider.folders.map((folder) {
-        return DropdownMenuItem(
-          value: folder.id,
-          child: Text(folder.name),
-        );
-      }).toList(),
+      items: [
+        DropdownMenuItem(
+          value: null,
+          child: Text('No Folder'),
+        ),
+        ...folders.map((folder) {
+          return DropdownMenuItem(
+            value: folder.id,
+            child: Text(folder.name),
+          );
+        }).toList(),
+      ],
       onChanged: (value) => setState(() => selectedFolderId = value),
       hint: Text('Select Folder (Optional)'),
       isExpanded: true,
@@ -185,68 +199,54 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Widget _buildScheduledTimePicker() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SwitchListTile(
-          title: Text('Set Scheduled Time'),
-          value: scheduledTime != null,
-          onChanged: (value) async {
-            if (value) {
-              DateTime? picked = await _showDateTimePicker(context);
-              if (picked != null) {
-                setState(() => scheduledTime = picked);
-              }
-            } else {
-              setState(() => scheduledTime = null);
-            }
-          },
-        ),
-        if (scheduledTime != null)
-          ListTile(
-            title: Text('Scheduled Time'),
-            subtitle: Text('${scheduledTime!}'),
-            trailing: IconButton(
-              icon: Icon(Icons.edit),
-              onPressed: () async {
-                DateTime? picked = await _showDateTimePicker(context);
-                if (picked != null) {
-                  setState(() => scheduledTime = picked);
-                }
-              },
-            ),
-          ),
-        if (scheduledTime != null)
+    if (taskType == TaskType.Routine) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           SwitchListTile(
-            title: Text('Set Alarm'),
-            value: hasAlarm,
-            onChanged: (value) => setState(() => hasAlarm = value),
+            title: Text('Set Alert Time'),
+            value: scheduledTime != null,
+            onChanged: (value) async {
+              if (value) {
+                TimeOfDay? picked = await _showTimePicker(context);
+                if (picked != null) {
+                  setState(() => scheduledTime = DateTime(0, 0, 0, picked.hour, picked.minute));
+                }
+              } else {
+                setState(() => scheduledTime = null);
+              }
+            },
           ),
-      ],
-    );
+          if (scheduledTime != null)
+            ListTile(
+              title: Text('Alert Time'),
+              subtitle: Text(
+                  '${scheduledTime!.hour.toString().padLeft(2, '0')}:${scheduledTime!.minute.toString().padLeft(2, '0')}'),
+              trailing: IconButton(
+                icon: Icon(Icons.edit),
+                onPressed: () async {
+                  TimeOfDay? picked = await _showTimePicker(context);
+                  if (picked != null) {
+                    setState(() => scheduledTime = DateTime(0, 0, 0, picked.hour, picked.minute));
+                  }
+                },
+              ),
+            ),
+        ],
+      );
+    } else {
+      return SizedBox.shrink();
+    }
   }
 
-  Future<DateTime?> _showDateTimePicker(BuildContext context) async {
-    DateTime? date;
-    TimeOfDay? time;
-
-    date = await showDatePicker(
-      context: context,
-      initialDate: scheduledTime ?? DateTime.now(),
-      firstDate: DateTime.now().subtract(Duration(days: 1)),
-      lastDate: DateTime(2100),
-    );
-    if (date == null) return null;
-
-    time = await showTimePicker(
+  Future<TimeOfDay?> _showTimePicker(BuildContext context) async {
+    TimeOfDay? time = await showTimePicker(
       context: context,
       initialTime: scheduledTime != null
-          ? TimeOfDay.fromDateTime(scheduledTime!)
+          ? TimeOfDay(hour: scheduledTime!.hour, minute: scheduledTime!.minute)
           : TimeOfDay.now(),
     );
-    if (time == null) return null;
-
-    return DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    return time;
   }
 
   void _saveTask() {
@@ -259,7 +259,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         taskType: taskType,
         priority: priority,
         scheduledTime: scheduledTime,
-        hasAlarm: hasAlarm,
+        hasAlarm: scheduledTime != null,
         folderId: selectedFolderId,
       );
       taskProvider.addTask(newTask);
