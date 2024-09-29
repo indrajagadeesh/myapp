@@ -3,302 +3,279 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import '../models/task.dart';
-import '../models/folder.dart';
 import '../providers/task_provider.dart';
-import '../providers/folder_provider.dart';
-import '../utils/constants.dart';
-import '../widgets/frequency_selector.dart';
+import '../models/task.dart';
+import '../models/subtask.dart';
+import '../utils/constants.dart'; // Added import
+import '../widgets/subtask_list.dart';
 
 class AddTaskScreen extends StatefulWidget {
+  final String? taskId;
+
+  // Constructor accepts optional taskId for editing
+  AddTaskScreen({this.taskId});
+
   @override
   _AddTaskScreenState createState() => _AddTaskScreenState();
 }
 
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  // Form fields
-  String title = '';
-  String description = '';
-  TaskType taskType = TaskType.Task;
-  TaskPriority priority = TaskPriority.Regular;
-  DateTime? scheduledTime;
-  bool hasAlarm = false;
-  String? selectedFolderId;
-
-  // Routine specific fields
-  bool isRepetitive = false;
-  Frequency frequency = Frequency.Daily;
-  List<Weekday> selectedWeekdays = [];
-
-  // Providers
-  late TaskProvider taskProvider;
-  late FolderProvider folderProvider;
+  String _title = '';
+  String _description = '';
+  TaskType _taskType = TaskType.Task;
+  DateTime? _scheduledTime;
+  bool _hasAlarm = false;
+  TaskPriority _priority = TaskPriority.Regular;
+  List<Subtask> _subtasks = [];
+  // Add other fields as necessary
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Initialize the providers here
-    taskProvider = Provider.of<TaskProvider>(context, listen: false);
-    folderProvider = Provider.of<FolderProvider>(context, listen: false);
+  void initState() {
+    super.initState();
+    if (widget.taskId != null) {
+      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+      Task? task;
+      try {
+        task = taskProvider.tasks.firstWhere((t) => t.id == widget.taskId);
+      } catch (e) {
+        try {
+          task = taskProvider.routines.firstWhere((t) => t.id == widget.taskId);
+        } catch (e) {
+          task = null;
+        }
+      }
+
+      if (task != null) {
+        _title = task.title;
+        _description = task.description;
+        _taskType = task.taskType;
+        _scheduledTime = task.scheduledTime;
+        _hasAlarm = task.hasAlarm;
+        _priority = task.priority;
+        _subtasks = List.from(task.subtasks);
+        // Initialize other fields as necessary
+      }
+    }
+  }
+
+  void _submit() {
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+      if (widget.taskId != null) {
+        // Update existing task
+        final task = taskProvider.tasks.firstWhere(
+          (t) => t.id == widget.taskId,
+          orElse: () {
+            try {
+              return taskProvider.routines.firstWhere((t) => t.id == widget.taskId);
+            } catch (e) {
+              return null;
+            }
+          },
+        );
+        if (task != null) {
+          task.title = _title;
+          task.description = _description;
+          task.taskType = _taskType;
+          task.scheduledTime = _scheduledTime;
+          task.hasAlarm = _hasAlarm;
+          task.priority = _priority;
+          task.subtasks = _subtasks;
+          // Update other fields as necessary
+          taskProvider.updateTask(task);
+        }
+      } else {
+        // Create new task
+        final newTask = Task(
+          id: Uuid().v4(),
+          title: _title,
+          description: _description,
+          taskType: _taskType,
+          scheduledTime: _scheduledTime,
+          hasAlarm: _hasAlarm,
+          priority: _priority,
+          subtasks: _subtasks,
+          // Initialize other fields as necessary
+        );
+        taskProvider.addTask(newTask);
+      }
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final folders = folderProvider.folders;
-
+    final isEditing = widget.taskId != null;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add ${taskType == TaskType.Task ? 'Task' : 'Routine'}'),
+        title: Text(isEditing ? 'Edit Task' : 'Add Task'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.save),
+            onPressed: _submit,
+          ),
+        ],
       ),
       body: Padding(
         padding: EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                // Title Input
-                TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'Title',
-                    border: OutlineInputBorder(),
-                  ),
-                  onSaved: (value) => title = value!,
-                  validator: (value) =>
-                      value!.isEmpty ? 'Please enter a title' : null,
-                ),
-                SizedBox(height: 16),
-                // Description Input
-                TextFormField(
-                  decoration: InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
-                  ),
-                  onSaved: (value) => description = value!,
-                  maxLines: 3,
-                ),
-                SizedBox(height: 16),
-                // Task Type Selector
-                _buildTaskTypeSelector(),
-                SizedBox(height: 16),
-                // Priority Selector
-                _buildPrioritySelector(),
-                SizedBox(height: 16),
-                // Folder Selector
-                _buildFolderSelector(folders),
-                SizedBox(height: 16),
-                // Scheduled Time Picker & Alarm
-                if (taskType == TaskType.Routine) _buildRoutineOptions(),
-                // Save Button
-                SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _saveTask,
-                  child: Text('Save ${taskType == TaskType.Task ? 'Task' : 'Routine'}'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    foregroundColor: Colors.white,
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 32.0, vertical: 12.0),
-                    textStyle:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTaskTypeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Task Type', style: TextStyle(fontSize: 16)),
-        ListTile(
-          title: const Text('Task'),
-          leading: Radio<TaskType>(
-            value: TaskType.Task,
-            groupValue: taskType,
-            onChanged: (TaskType? value) {
-              setState(() {
-                taskType = value!;
-                // Reset routine-specific fields
-                isRepetitive = false;
-                frequency = Frequency.Daily;
-                selectedWeekdays = [];
-                hasAlarm = false;
-                scheduledTime = null;
-              });
-            },
-          ),
-        ),
-        ListTile(
-          title: const Text('Routine'),
-          leading: Radio<TaskType>(
-            value: TaskType.Routine,
-            groupValue: taskType,
-            onChanged: (TaskType? value) {
-              setState(() {
-                taskType = value!;
-              });
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPrioritySelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Priority', style: TextStyle(fontSize: 16)),
-        Column(
-          children: TaskPriority.values.map((p) {
-            return ListTile(
-              title: Text(priorityText(p)),
-              leading: Radio<TaskPriority>(
-                value: p,
-                groupValue: priority,
-                onChanged: (TaskPriority? value) {
+          child: ListView(
+            children: [
+              // Title Field
+              TextFormField(
+                initialValue: _title,
+                decoration: InputDecoration(labelText: 'Title'),
+                onSaved: (value) => _title = value!,
+                validator: (value) => value!.isEmpty ? 'Please enter a title' : null,
+              ),
+              SizedBox(height: 10),
+              // Description Field
+              TextFormField(
+                initialValue: _description,
+                decoration: InputDecoration(labelText: 'Description'),
+                onSaved: (value) => _description = value!,
+                validator: (value) => value!.isEmpty ? 'Please enter a description' : null,
+              ),
+              SizedBox(height: 10),
+              // Task Type Dropdown
+              DropdownButtonFormField<TaskType>(
+                value: _taskType,
+                decoration: InputDecoration(labelText: 'Task Type'),
+                items: TaskType.values.map((TaskType type) {
+                  return DropdownMenuItem<TaskType>(
+                    value: type,
+                    child: Text(taskTypeText(type)), // Now defined via constants.dart
+                  );
+                }).toList(),
+                onChanged: (TaskType? newValue) {
                   setState(() {
-                    priority = value!;
+                    _taskType = newValue!;
                   });
                 },
               ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFolderSelector(List<Folder> folders) {
-    return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
-        labelText: 'Folder',
-        border: OutlineInputBorder(),
-      ),
-      value: selectedFolderId,
-      items: [
-        DropdownMenuItem(
-          value: null,
-          child: Text('No Folder'),
-        ),
-        ...folders.map((folder) {
-          return DropdownMenuItem(
-            value: folder.id,
-            child: Text(folder.name),
-          );
-        }).toList(),
-      ],
-      onChanged: (value) => setState(() => selectedFolderId = value),
-      hint: Text('Select Folder (Optional)'),
-      isExpanded: true,
-    );
-  }
-
-  Widget _buildRoutineOptions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Repetitive Switch
-        SwitchListTile(
-          title: Text('Is Repetitive'),
-          value: isRepetitive,
-          onChanged: (value) {
-            setState(() {
-              isRepetitive = value;
-              if (!isRepetitive) {
-                frequency = Frequency.Daily;
-                selectedWeekdays = [];
-              }
-            });
-          },
-        ),
-        SizedBox(height: 16),
-        // Frequency Selector
-        if (isRepetitive)
-          FrequencySelector(
-            selectedFrequency: frequency,
-            selectedWeekdays: selectedWeekdays,
-            onFrequencyChanged: (freq) {
-              setState(() {
-                frequency = freq;
-              });
-            },
-            onWeekdaysChanged: (days) {
-              setState(() {
-                selectedWeekdays = days;
-              });
-            },
-          ),
-        SizedBox(height: 16),
-        // Alarm Option
-        SwitchListTile(
-          title: Text('Set Notification Alarm'),
-          value: hasAlarm,
-          onChanged: (value) {
-            setState(() {
-              hasAlarm = value;
-              if (!hasAlarm) {
-                scheduledTime = null;
-              }
-            });
-          },
-        ),
-        if (hasAlarm)
-          ListTile(
-            title: Text('Alert Time'),
-            subtitle: Text(
-                '${scheduledTime?.hour.toString().padLeft(2, '0')}:${scheduledTime?.minute.toString().padLeft(2, '0') ?? '00'}'),
-            trailing: IconButton(
-              icon: Icon(Icons.access_time),
-              onPressed: () async {
-                TimeOfDay? picked = await showTimePicker(
-                  context: context,
-                  initialTime: scheduledTime != null
-                      ? TimeOfDay(hour: scheduledTime!.hour, minute: scheduledTime!.minute)
-                      : TimeOfDay.now(),
-                );
-                if (picked != null) {
+              SizedBox(height: 10),
+              // Scheduled Time Picker
+              ListTile(
+                title: Text(_scheduledTime == null
+                    ? 'No Scheduled Time'
+                    : 'Scheduled Time: ${_scheduledTime!.toLocal()}'),
+                trailing: Icon(Icons.calendar_today),
+                onTap: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: _scheduledTime ?? DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2100),
+                  );
+                  if (pickedDate != null) {
+                    TimeOfDay? pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime: _scheduledTime != null
+                          ? TimeOfDay.fromDateTime(_scheduledTime!)
+                          : TimeOfDay.now(),
+                    );
+                    if (pickedTime != null) {
+                      setState(() {
+                        _scheduledTime = DateTime(
+                          pickedDate.year,
+                          pickedDate.month,
+                          pickedDate.day,
+                          pickedTime.hour,
+                          pickedTime.minute,
+                        );
+                        _hasAlarm = true;
+                      });
+                    }
+                  }
+                },
+              ),
+              SizedBox(height: 10),
+              // Priority Dropdown
+              DropdownButtonFormField<TaskPriority>(
+                value: _priority,
+                decoration: InputDecoration(labelText: 'Priority'),
+                items: TaskPriority.values.map((TaskPriority priority) {
+                  return DropdownMenuItem<TaskPriority>(
+                    value: priority,
+                    child: Text(priorityText(priority)), // Now defined via constants.dart
+                  );
+                }).toList(),
+                onChanged: (TaskPriority? newValue) {
                   setState(() {
-                    scheduledTime = DateTime(
-                        0, 0, 0, picked.hour, picked.minute); // Date part unused
+                    _priority = newValue!;
                   });
-                }
-              },
-            ),
+                },
+              ),
+              SizedBox(height: 10),
+              // Subtasks List
+              Text(
+                'Subtasks',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              _subtasks.isEmpty
+                  ? Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text('No subtasks added.'),
+                    )
+                  : SubtaskList(
+                      subtasks: _subtasks,
+                      onToggle: (Subtask subtask) {
+                        setState(() {
+                          subtask.isCompleted = !subtask.isCompleted;
+                        });
+                      },
+                    ),
+              ElevatedButton(
+                onPressed: () async {
+                  final String? newSubtaskTitle = await _showAddSubtaskDialog(context);
+                  if (newSubtaskTitle != null && newSubtaskTitle.isNotEmpty) {
+                    setState(() {
+                      _subtasks.add(Subtask(id: Uuid().v4(), title: newSubtaskTitle));
+                    });
+                  }
+                },
+                child: Text('Add Subtask'),
+              ),
+              // Add other fields as necessary
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 
-  void _saveTask() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      var newTask = Task(
-        id: Uuid().v4(),
-        title: title,
-        description: description,
-        taskType: taskType,
-        priority: priority,
-        scheduledTime: hasAlarm ? scheduledTime : null,
-        hasAlarm: hasAlarm,
-        folderId: selectedFolderId, // If null, provider assigns default
-        isRepetitive: isRepetitive,
-        frequency: frequency,
-        selectedWeekdays: isRepetitive ? selectedWeekdays : null,
-      );
-      taskProvider.addTask(newTask);
-      Navigator.pop(context);
-    }
+  Future<String?> _showAddSubtaskDialog(BuildContext context) {
+    String subtaskTitle = '';
+    return showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Add Subtask'),
+          content: TextField(
+            onChanged: (value) {
+              subtaskTitle = value;
+            },
+            decoration: InputDecoration(hintText: 'Subtask Title'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Cancel
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(subtaskTitle); // Save
+              },
+              child: Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

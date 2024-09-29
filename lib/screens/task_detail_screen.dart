@@ -3,103 +3,136 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/task_provider.dart';
-import '../widgets/subtask_list.dart';
-import '../widgets/stopwatch_widget.dart';
+import '../models/task.dart';
 import '../utils/constants.dart';
+import '../widgets/stopwatch_widget.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final String taskId;
 
+  // Constructor requires taskId
   TaskDetailScreen({required this.taskId});
 
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
-    final task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
+    Task? task;
+    try {
+      task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
+    } catch (e) {
+      try {
+        task = taskProvider.routines.firstWhere((t) => t.id == taskId);
+      } catch (e) {
+        task = null;
+      }
+    }
+
+    if (task == null) {
+      return Scaffold(
+        appBar: AppBar(title: Text('Task Not Found')),
+        body: Center(child: Text('Task with ID $taskId not found.')),
+      );
+    }
 
     return Scaffold(
-      appBar: AppBar(title: Text(task.title)),
-      body: SingleChildScrollView(
+      appBar: AppBar(
+        title: Text(task.title),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.edit),
+            onPressed: () {
+              Navigator.pushNamed(
+                context,
+                '/add-task',
+                arguments: {'taskId': task.id},
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: () {
+              _confirmDelete(context, taskProvider, task.id);
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Task Details Card
-            Card(
-              margin: EdgeInsets.all(16),
-              elevation: 2,
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      task.title,
-                      style:
-                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      task.description,
-                      style: TextStyle(fontSize: 16),
-                    ),
-                    SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Chip(
-                          label: Text(priorityText(task.priority)),
-                          backgroundColor:
-                              priorityColor(task.priority).withOpacity(0.1),
-                        ),
-                        SizedBox(width: 8),
-                        Chip(
-                          label: Text(taskTypeText(task.taskType)),
-                          backgroundColor:
-                              Theme.of(context).primaryColor.withOpacity(0.1),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16),
-                    if (task.isCompleted)
-                      Text(
-                        'Completed on: ${task.completedDate}',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+            Text(
+              task.description,
+              style: TextStyle(fontSize: 16.0),
             ),
-            // Subtasks
-            SubtaskList(task: task),
-            // Stopwatch
-            StopwatchWidget(task: task),
-            // Mark as Completed Button
-            if (!task.isCompleted)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ElevatedButton(
-                  onPressed: () {
-                    taskProvider.markTaskCompleted(task);
-                    Navigator.pop(context);
-                  },
-                  child: Text('Mark as Completed'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
-                    textStyle:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
+            SizedBox(height: 20),
+            // Display additional task details here
+            Row(
+              children: [
+                Text('Priority: ${priorityText(task.priority)}'),
+                SizedBox(width: 20),
+                Text('Status: ${task.isCompleted ? "Completed" : "Pending"}'),
+              ],
+            ),
+            SizedBox(height: 10),
+            if (task.hasAlarm && task.scheduledTime != null)
+              Row(
+                children: [
+                  Text('Scheduled Time: ${task.scheduledTime!.toLocal()}'),
+                ],
+              ),
+            SizedBox(height: 10),
+            // Display subtasks
+            if (task.subtasks.isNotEmpty)
+              Expanded(
+                child: ListView(
+                  children: task.subtasks.map((subtask) {
+                    return CheckboxListTile(
+                      value: subtask.isCompleted,
+                      onChanged: (bool? value) {
+                        // Toggle subtask completion
+                        subtask.isCompleted = value ?? false;
+                        taskProvider.updateTask(task);
+                      },
+                      title: Text(subtask.title),
+                    );
+                  }).toList(),
                 ),
               ),
+            // Stopwatch Widget (if needed)
+            if (!task.isCompleted)
+              StopwatchWidget(),
+            // Add more widgets as needed
           ],
         ),
       ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, TaskProvider taskProvider, String taskId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Delete Task'),
+          content: Text('Are you sure you want to delete this task?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Cancel
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                taskProvider.deleteTask(taskId);
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Go back to home
+              },
+              child: Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

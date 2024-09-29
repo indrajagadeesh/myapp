@@ -13,6 +13,8 @@ String priorityText(TaskPriority priority) {
       return 'Very Important';
     case TaskPriority.Urgent:
       return 'Urgent';
+    default:
+      return 'Unknown';
   }
 }
 
@@ -22,6 +24,8 @@ String taskTypeText(TaskType taskType) {
       return 'Task';
     case TaskType.Routine:
       return 'Routine';
+    default:
+      return 'Unknown';
   }
 }
 
@@ -35,6 +39,8 @@ Color priorityColor(TaskPriority priority) {
       return Colors.orange;
     case TaskPriority.Urgent:
       return Colors.red;
+    default:
+      return Colors.grey;
   }
 }
 
@@ -48,6 +54,8 @@ String frequencyText(Frequency frequency) {
       return 'Bi-Weekly';
     case Frequency.Monthly:
       return 'Monthly';
+    default:
+      return 'Unknown';
   }
 }
 
@@ -67,5 +75,7 @@ String weekdayText(Weekday weekday) {
       return 'Saturday';
     case Weekday.Sunday:
       return 'Sunday';
+    default:
+      return 'Unknown';
   }
 }

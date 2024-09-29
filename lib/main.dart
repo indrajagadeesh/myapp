@@ -13,12 +13,14 @@ import 'screens/add_task_screen.dart';
 import 'screens/task_detail_screen.dart';
 import 'screens/folder_screen.dart';
 import 'screens/report_screen.dart';
+import 'utils/notification_service.dart';
+import 'utils/theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await Hive.initFlutter();
-  
+
   // Registering TypeAdapters only once
   if (!Hive.isAdapterRegistered(TaskTypeAdapter().typeId)) {
     Hive.registerAdapter(TaskTypeAdapter());
@@ -42,11 +44,14 @@ void main() async {
     Hive.registerAdapter(WeekdayAdapter());
   }
 
+  // Initialize Notifications
+  await NotificationService.initialize();
+
   // Open Hive Boxes
   await Hive.openBox<Task>('tasks');
   await Hive.openBox<Folder>('folders');
   await Hive.openBox<Subtask>('subtasks');
-  
+
   runApp(MyApp());
 }
 
@@ -64,16 +69,34 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'TaskFlow',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
+        theme: appTheme,
         initialRoute: '/',
-        routes: {
-          '/': (context) => HomeScreen(),
-          '/add-task': (context) => AddTaskScreen(),
-          '/task-detail': (context) => TaskDetailScreen(),
-          '/folders': (context) => FolderScreen(),
-          '/reports': (context) => ReportScreen(),
+        onGenerateRoute: (settings) {
+          if (settings.name == '/task-detail') {
+            final args = settings.arguments as Map<String, dynamic>;
+            final String taskId = args['taskId'];
+            return MaterialPageRoute(
+              builder: (context) {
+                return TaskDetailScreen(taskId: taskId);
+              },
+            );
+          }
+          switch (settings.name) {
+            case '/':
+              return MaterialPageRoute(builder: (context) => HomeScreen());
+            case '/add-task':
+              final args = settings.arguments as Map<String, dynamic>?;
+              final String? taskId = args != null ? args['taskId'] : null;
+              return MaterialPageRoute(
+                builder: (context) => AddTaskScreen(taskId: taskId),
+              );
+            case '/folders':
+              return MaterialPageRoute(builder: (context) => FolderScreen());
+            case '/reports':
+              return MaterialPageRoute(builder: (context) => ReportScreen());
+            default:
+              return MaterialPageRoute(builder: (context) => HomeScreen());
+          }
         },
       ),
     );

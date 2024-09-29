@@ -13,11 +13,11 @@ class Folder extends HiveObject {
   String name;
 
   @HiveField(2)
-  bool isDefault; // New property to indicate default folder
+  bool isDefault; // Indicates if this is the default folder
 
   Folder({
     required this.id,
     required this.name,
-    this.isDefault = false, // Defaults to false
+    this.isDefault = false,
   });
 }

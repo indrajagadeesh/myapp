@@ -71,17 +71,25 @@ class TaskProvider extends ChangeNotifier {
   }
 
   void deleteTask(String taskId) {
-    final task = _taskBox.values.firstWhere((t) => t.id == taskId);
-    if (task.hasAlarm) {
-      NotificationService.cancelNotification(task.key as int);
+    Task? task;
+    try {
+      task = _taskBox.values.firstWhere((t) => t.id == taskId);
+    } catch (e) {
+      task = null;
     }
-    task.delete();
-    if (task.taskType == TaskType.Task) {
-      tasks = _taskBox.values.where((t) => t.taskType == TaskType.Task).toList();
-    } else {
-      routines = _taskBox.values.where((t) => t.taskType == TaskType.Routine).toList();
+
+    if (task != null) {
+      if (task.hasAlarm) {
+        NotificationService.cancelNotification(task.key as int);
+      }
+      task.delete();
+      if (task.taskType == TaskType.Task) {
+        tasks = _taskBox.values.where((t) => t.taskType == TaskType.Task).toList();
+      } else {
+        routines = _taskBox.values.where((t) => t.taskType == TaskType.Routine).toList();
+      }
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   void markTaskCompleted(Task task) {

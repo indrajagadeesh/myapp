@@ -3,18 +3,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/task_provider.dart';
-import '../providers/folder_provider.dart';
-import '../widgets/pop_out_tile.dart';
-import '../screens/task_detail_screen.dart';
-import '../utils/constants.dart';
 import '../models/task.dart';
+import '../utils/constants.dart';
 
 class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
-    final folderProvider = Provider.of<FolderProvider>(context);
-    final folders = folderProvider.folders;
+    final List<Task> tasks = taskProvider.tasks;
+    final List<Task> routines = taskProvider.routines;
 
     return Scaffold(
       appBar: AppBar(
@@ -36,105 +33,56 @@ class HomeScreen extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          // Tasks Section
+          // Display Tasks
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(8.0),
             child: Text(
               'Tasks',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          ...folders.map((folder) {
-            final tasks = taskProvider.getTasksByFolder(folder.id, TaskType.Task);
-            if (tasks.isEmpty) return SizedBox.shrink();
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Text(
-                    folder.name,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                ...tasks.map((task) => PopOutTile(
-                      leading: CircleAvatar(
-                        backgroundColor: priorityColor(task.priority),
-                        child: Icon(
-                          task.taskType == TaskType.Task
-                              ? Icons.task
-                              : Icons.repeat,
-                          color: Colors.white,
-                        ),
-                      ),
-                      title: task.title,
-                      subtitle: task.description.isNotEmpty
-                          ? task.description
-                          : null,
-                      trailing: Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TaskDetailScreen(taskId: task.id),
-                          ),
-                        );
-                      },
-                    )),
-              ],
-            );
-          }).toList(),
-          // Routines Section
+          if (tasks.isEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text('No tasks available.'),
+            )
+          else
+            ...tasks.map((task) => ListTile(
+                  title: Text(task.title),
+                  subtitle: Text(priorityText(task.priority)),
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/task-detail',
+                      arguments: {'taskId': task.id},
+                    );
+                  },
+                )),
+          // Display Routines
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(8.0),
             child: Text(
               'Routines',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          ...folders.map((folder) {
-            final routines =
-                taskProvider.getTasksByFolder(folder.id, TaskType.Routine);
-            if (routines.isEmpty) return SizedBox.shrink();
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Text(
-                    folder.name,
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                ...routines.map((routine) => PopOutTile(
-                      leading: CircleAvatar(
-                        backgroundColor: priorityColor(routine.priority),
-                        child: Icon(
-                          routine.taskType == TaskType.Task
-                              ? Icons.task
-                              : Icons.repeat,
-                          color: Colors.white,
-                        ),
-                      ),
-                      title: routine.title,
-                      subtitle: routine.description.isNotEmpty
-                          ? routine.description
-                          : null,
-                      trailing: Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TaskDetailScreen(taskId: routine.id),
-                          ),
-                        );
-                      },
-                    )),
-              ],
-            );
-          }).toList(),
+          if (routines.isEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text('No routines available.'),
+            )
+          else
+            ...routines.map((routine) => ListTile(
+                  title: Text(routine.title),
+                  subtitle: Text(frequencyText(routine.frequency)),
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/task-detail',
+                      arguments: {'taskId': routine.id},
+                    );
+                  },
+                )),
         ],
       ),
       floatingActionButton: FloatingActionButton(
