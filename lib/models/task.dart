@@ -63,7 +63,7 @@ class Task extends HiveObject {
     this.priority = TaskPriority.Regular,
     this.subtasks = const [],
     this.timeSpent = Duration.zero,
-    this.folderId, // Can be null; provider assigns default
+    this.folderId,
     this.isCompleted = false,
     this.completedDate,
     this.isRepetitive = false,
