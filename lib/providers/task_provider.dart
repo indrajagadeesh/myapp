@@ -22,6 +22,10 @@ class TaskProvider extends ChangeNotifier {
   }
 
   void addTask(Task task) {
+    // Assign default folder if none selected
+    if (task.folderId == null) {
+      task.folderId = _getDefaultFolderId();
+    }
     _taskBox.add(task);
     if (task.taskType == TaskType.Task) {
       tasks = _taskBox.values.where((t) => t.taskType == TaskType.Task).toList();
@@ -32,6 +36,12 @@ class TaskProvider extends ChangeNotifier {
       NotificationService.scheduleNotification(task);
     }
     notifyListeners();
+  }
+
+  String _getDefaultFolderId() {
+    // Assuming a default folder exists with a known ID
+    // Replace 'default_folder_id' with actual default folder ID logic
+    return 'default_folder_id';
   }
 
   void updateTask(Task task) {
@@ -79,5 +89,10 @@ class TaskProvider extends ChangeNotifier {
     } else {
       return routines.where((task) => task.folderId == folderId).toList();
     }
+  }
+
+  void moveTaskToFolder(Task task, String newFolderId) {
+    task.folderId = newFolderId;
+    updateTask(task);
   }
 }

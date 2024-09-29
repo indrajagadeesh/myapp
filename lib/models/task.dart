@@ -43,11 +43,15 @@ class Task extends HiveObject {
   @HiveField(11)
   DateTime? completedDate;
 
+  // Additional fields for routines
   @HiveField(12)
   bool isRepetitive;
 
   @HiveField(13)
   Frequency frequency;
+
+  @HiveField(14)
+  List<Weekday>? selectedWeekdays;
 
   Task({
     required this.id,
@@ -59,11 +63,12 @@ class Task extends HiveObject {
     this.priority = TaskPriority.Regular,
     this.subtasks = const [],
     this.timeSpent = Duration.zero,
-    this.folderId,
+    this.folderId, // Can be null; provider assigns default
     this.isCompleted = false,
     this.completedDate,
     this.isRepetitive = false,
     this.frequency = Frequency.Daily,
+    this.selectedWeekdays,
   });
 }
 
@@ -94,5 +99,25 @@ enum Frequency {
   @HiveField(1)
   Weekly,
   @HiveField(2)
+  BiWeekly,
+  @HiveField(3)
   Monthly,
+}
+
+@HiveType(typeId: 6)
+enum Weekday {
+  @HiveField(0)
+  Monday,
+  @HiveField(1)
+  Tuesday,
+  @HiveField(2)
+  Wednesday,
+  @HiveField(3)
+  Thursday,
+  @HiveField(4)
+  Friday,
+  @HiveField(5)
+  Saturday,
+  @HiveField(6)
+  Sunday,
 }

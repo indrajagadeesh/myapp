@@ -44,7 +44,28 @@ String frequencyText(Frequency frequency) {
       return 'Daily';
     case Frequency.Weekly:
       return 'Weekly';
+    case Frequency.BiWeekly:
+      return 'Bi-Weekly';
     case Frequency.Monthly:
       return 'Monthly';
+  }
+}
+
+String weekdayText(Weekday weekday) {
+  switch (weekday) {
+    case Weekday.Monday:
+      return 'Monday';
+    case Weekday.Tuesday:
+      return 'Tuesday';
+    case Weekday.Wednesday:
+      return 'Wednesday';
+    case Weekday.Thursday:
+      return 'Thursday';
+    case Weekday.Friday:
+      return 'Friday';
+    case Weekday.Saturday:
+      return 'Saturday';
+    case Weekday.Sunday:
+      return 'Sunday';
   }
 }

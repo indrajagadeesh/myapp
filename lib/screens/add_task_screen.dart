@@ -8,6 +8,7 @@ import '../models/folder.dart';
 import '../providers/task_provider.dart';
 import '../providers/folder_provider.dart';
 import '../utils/constants.dart';
+import '../widgets/frequency_selector.dart';
 
 class AddTaskScreen extends StatefulWidget {
   @override
@@ -25,6 +26,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   DateTime? scheduledTime;
   bool hasAlarm = false;
   String? selectedFolderId;
+
+  // Routine specific fields
+  bool isRepetitive = false;
+  Frequency frequency = Frequency.Daily;
+  List<Weekday> selectedWeekdays = [];
 
   // Providers
   late TaskProvider taskProvider;
@@ -83,8 +89,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 // Folder Selector
                 _buildFolderSelector(folders),
                 SizedBox(height: 16),
-                // Scheduled Time Picker
-                _buildScheduledTimePicker(),
+                // Scheduled Time Picker & Alarm
+                if (taskType == TaskType.Routine) _buildRoutineOptions(),
                 // Save Button
                 SizedBox(height: 24),
                 ElevatedButton(
@@ -123,11 +129,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             onChanged: (TaskType? value) {
               setState(() {
                 taskType = value!;
-                // Reset repetitive settings when switching to Task
-                if (taskType == TaskType.Task) {
-                  hasAlarm = false;
-                  scheduledTime = null;
-                }
+                // Reset routine-specific fields
+                isRepetitive = false;
+                frequency = Frequency.Daily;
+                selectedWeekdays = [];
+                hasAlarm = false;
+                scheduledTime = null;
               });
             },
           ),
@@ -198,55 +205,80 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
-  Widget _buildScheduledTimePicker() {
-    if (taskType == TaskType.Routine) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SwitchListTile(
-            title: Text('Set Alert Time'),
-            value: scheduledTime != null,
-            onChanged: (value) async {
-              if (value) {
-                TimeOfDay? picked = await _showTimePicker(context);
-                if (picked != null) {
-                  setState(() => scheduledTime = DateTime(0, 0, 0, picked.hour, picked.minute));
-                }
-              } else {
-                setState(() => scheduledTime = null);
+  Widget _buildRoutineOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Repetitive Switch
+        SwitchListTile(
+          title: Text('Is Repetitive'),
+          value: isRepetitive,
+          onChanged: (value) {
+            setState(() {
+              isRepetitive = value;
+              if (!isRepetitive) {
+                frequency = Frequency.Daily;
+                selectedWeekdays = [];
               }
+            });
+          },
+        ),
+        SizedBox(height: 16),
+        // Frequency Selector
+        if (isRepetitive)
+          FrequencySelector(
+            selectedFrequency: frequency,
+            selectedWeekdays: selectedWeekdays,
+            onFrequencyChanged: (freq) {
+              setState(() {
+                frequency = freq;
+              });
+            },
+            onWeekdaysChanged: (days) {
+              setState(() {
+                selectedWeekdays = days;
+              });
             },
           ),
-          if (scheduledTime != null)
-            ListTile(
-              title: Text('Alert Time'),
-              subtitle: Text(
-                  '${scheduledTime!.hour.toString().padLeft(2, '0')}:${scheduledTime!.minute.toString().padLeft(2, '0')}'),
-              trailing: IconButton(
-                icon: Icon(Icons.edit),
-                onPressed: () async {
-                  TimeOfDay? picked = await _showTimePicker(context);
-                  if (picked != null) {
-                    setState(() => scheduledTime = DateTime(0, 0, 0, picked.hour, picked.minute));
-                  }
-                },
-              ),
+        SizedBox(height: 16),
+        // Alarm Option
+        SwitchListTile(
+          title: Text('Set Notification Alarm'),
+          value: hasAlarm,
+          onChanged: (value) {
+            setState(() {
+              hasAlarm = value;
+              if (!hasAlarm) {
+                scheduledTime = null;
+              }
+            });
+          },
+        ),
+        if (hasAlarm)
+          ListTile(
+            title: Text('Alert Time'),
+            subtitle: Text(
+                '${scheduledTime?.hour.toString().padLeft(2, '0')}:${scheduledTime?.minute.toString().padLeft(2, '0') ?? '00'}'),
+            trailing: IconButton(
+              icon: Icon(Icons.access_time),
+              onPressed: () async {
+                TimeOfDay? picked = await showTimePicker(
+                  context: context,
+                  initialTime: scheduledTime != null
+                      ? TimeOfDay(hour: scheduledTime!.hour, minute: scheduledTime!.minute)
+                      : TimeOfDay.now(),
+                );
+                if (picked != null) {
+                  setState(() {
+                    scheduledTime = DateTime(
+                        0, 0, 0, picked.hour, picked.minute); // Date part unused
+                  });
+                }
+              },
             ),
-        ],
-      );
-    } else {
-      return SizedBox.shrink();
-    }
-  }
-
-  Future<TimeOfDay?> _showTimePicker(BuildContext context) async {
-    TimeOfDay? time = await showTimePicker(
-      context: context,
-      initialTime: scheduledTime != null
-          ? TimeOfDay(hour: scheduledTime!.hour, minute: scheduledTime!.minute)
-          : TimeOfDay.now(),
+          ),
+      ],
     );
-    return time;
   }
 
   void _saveTask() {
@@ -258,9 +290,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         description: description,
         taskType: taskType,
         priority: priority,
-        scheduledTime: scheduledTime,
-        hasAlarm: scheduledTime != null,
-        folderId: selectedFolderId,
+        scheduledTime: hasAlarm ? scheduledTime : null,
+        hasAlarm: hasAlarm,
+        folderId: selectedFolderId, // If null, provider assigns default
+        isRepetitive: isRepetitive,
+        frequency: frequency,
+        selectedWeekdays: isRepetitive ? selectedWeekdays : null,
       );
       taskProvider.addTask(newTask);
       Navigator.pop(context);

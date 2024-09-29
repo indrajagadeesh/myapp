@@ -31,13 +31,14 @@ class TaskAdapter extends TypeAdapter<Task> {
       completedDate: fields[11] as DateTime?,
       isRepetitive: fields[12] as bool,
       frequency: fields[13] as Frequency,
+      selectedWeekdays: (fields[14] as List?)?.cast<Weekday>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -65,7 +66,9 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(12)
       ..write(obj.isRepetitive)
       ..writeByte(13)
-      ..write(obj.frequency);
+      ..write(obj.frequency)
+      ..writeByte(14)
+      ..write(obj.selectedWeekdays);
   }
 
   @override
@@ -179,6 +182,8 @@ class FrequencyAdapter extends TypeAdapter<Frequency> {
       case 1:
         return Frequency.Weekly;
       case 2:
+        return Frequency.BiWeekly;
+      case 3:
         return Frequency.Monthly;
       default:
         return Frequency.Daily;
@@ -194,8 +199,11 @@ class FrequencyAdapter extends TypeAdapter<Frequency> {
       case Frequency.Weekly:
         writer.writeByte(1);
         break;
-      case Frequency.Monthly:
+      case Frequency.BiWeekly:
         writer.writeByte(2);
+        break;
+      case Frequency.Monthly:
+        writer.writeByte(3);
         break;
     }
   }
@@ -207,6 +215,70 @@ class FrequencyAdapter extends TypeAdapter<Frequency> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is FrequencyAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class WeekdayAdapter extends TypeAdapter<Weekday> {
+  @override
+  final int typeId = 6;
+
+  @override
+  Weekday read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return Weekday.Monday;
+      case 1:
+        return Weekday.Tuesday;
+      case 2:
+        return Weekday.Wednesday;
+      case 3:
+        return Weekday.Thursday;
+      case 4:
+        return Weekday.Friday;
+      case 5:
+        return Weekday.Saturday;
+      case 6:
+        return Weekday.Sunday;
+      default:
+        return Weekday.Monday;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, Weekday obj) {
+    switch (obj) {
+      case Weekday.Monday:
+        writer.writeByte(0);
+        break;
+      case Weekday.Tuesday:
+        writer.writeByte(1);
+        break;
+      case Weekday.Wednesday:
+        writer.writeByte(2);
+        break;
+      case Weekday.Thursday:
+        writer.writeByte(3);
+        break;
+      case Weekday.Friday:
+        writer.writeByte(4);
+        break;
+      case Weekday.Saturday:
+        writer.writeByte(5);
+        break;
+      case Weekday.Sunday:
+        writer.writeByte(6);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WeekdayAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
