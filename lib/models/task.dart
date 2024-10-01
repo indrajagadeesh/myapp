@@ -31,7 +31,6 @@ class Task extends HiveObject {
   @HiveField(7)
   List<Subtask> subtasks;
 
-  // Changed from Duration to int (microseconds)
   @HiveField(8)
   int timeSpentMicroseconds;
 
@@ -44,7 +43,6 @@ class Task extends HiveObject {
   @HiveField(11)
   DateTime? completedDate;
 
-  // Additional fields for routines
   @HiveField(12)
   bool isRepetitive;
 
@@ -54,11 +52,14 @@ class Task extends HiveObject {
   @HiveField(14)
   List<Weekday>? selectedWeekdays;
 
+  @HiveField(15)
+  PartOfDay? partOfDay;
+
   Task({
     required this.id,
     required this.title,
     this.description = '',
-    this.taskType = TaskType.Task,
+    required this.taskType,
     this.scheduledTime,
     this.hasAlarm = false,
     this.priority = TaskPriority.Regular,
@@ -70,9 +71,9 @@ class Task extends HiveObject {
     this.isRepetitive = false,
     this.frequency = Frequency.Daily,
     this.selectedWeekdays,
+    this.partOfDay,
   }) : timeSpentMicroseconds = timeSpent.inMicroseconds;
 
-  // Getter and setter for timeSpent as Duration
   Duration get timeSpent => Duration(microseconds: timeSpentMicroseconds);
 
   set timeSpent(Duration value) {
@@ -128,4 +129,16 @@ enum Weekday {
   Saturday,
   @HiveField(6)
   Sunday,
+}
+
+@HiveType(typeId: 7)
+enum PartOfDay {
+  @HiveField(0)
+  WakeUp,
+  @HiveField(1)
+  Lunch,
+  @HiveField(2)
+  Evening,
+  @HiveField(3)
+  Dinner,
 }

@@ -33,6 +33,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   bool _isRepetitive = false;
   Frequency _frequency = Frequency.Daily;
   List<Weekday> _selectedWeekdays = [];
+  PartOfDay? _partOfDay; // New field
+  bool _wantsNotification = true; // New field
 
   @override
   void initState() {
@@ -52,6 +54,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         _isRepetitive = task.isRepetitive;
         _frequency = task.frequency;
         _selectedWeekdays = task.selectedWeekdays ?? [];
+        _partOfDay = task.partOfDay;
+        _wantsNotification =
+            true; // Assuming user wants notification by default
       }
     }
   }
@@ -100,6 +105,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           task.isRepetitive = _isRepetitive;
           task.frequency = _frequency;
           task.selectedWeekdays = _selectedWeekdays;
+          task.partOfDay = _partOfDay;
           taskProvider.updateTask(task);
         }
       } else {
@@ -116,6 +122,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           isRepetitive: _isRepetitive,
           frequency: _frequency,
           selectedWeekdays: _selectedWeekdays,
+          partOfDay: _partOfDay,
         );
         taskProvider.addTask(newTask);
       }
@@ -200,6 +207,35 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
   }
 
+  void _selectPartOfDay() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        List<PartOfDay> parts = PartOfDay.values;
+        return AlertDialog(
+          title: const Text('Select Part of Day'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: parts.map((part) {
+                return RadioListTile<PartOfDay>(
+                  title: Text(partOfDayText(part)),
+                  value: part,
+                  groupValue: _partOfDay,
+                  onChanged: (PartOfDay? value) {
+                    setState(() {
+                      _partOfDay = value;
+                      Navigator.pop(context);
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.taskId != null;
@@ -246,21 +282,25 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 onChanged: (TaskType? newValue) {
                   setState(() {
                     _taskType = newValue ?? TaskType.Task;
+                    if (_taskType == TaskType.Task) {
+                      _isRepetitive = false;
+                    }
                   });
                 },
               ),
               const SizedBox(height: 10),
-              // Repetitive Task Switch
-              SwitchListTile(
-                title: const Text('Is Repetitive'),
-                value: _isRepetitive,
-                onChanged: (bool value) {
-                  setState(() {
-                    _isRepetitive = value;
-                  });
-                },
-              ),
-              if (_isRepetitive) ...[
+              // Show "Is Repetitive" only for Routines
+              if (_taskType == TaskType.Routine)
+                SwitchListTile(
+                  title: const Text('Is Repetitive'),
+                  value: _isRepetitive,
+                  onChanged: (bool value) {
+                    setState(() {
+                      _isRepetitive = value;
+                    });
+                  },
+                ),
+              if (_taskType == TaskType.Routine && _isRepetitive) ...[
                 // Frequency Dropdown
                 DropdownButtonFormField<Frequency>(
                   value: _frequency,
@@ -294,14 +334,45 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   ),
                 const SizedBox(height: 10),
               ],
-              // Scheduled Time Picker
-              ListTile(
-                title: Text(_scheduledTime == null
-                    ? 'No Scheduled Time'
-                    : 'Scheduled Time: ${_scheduledTime!.toLocal()}'),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: _pickScheduledTime,
+              // Scheduled Time or Part of Day
+              if (_taskType == TaskType.Task ||
+                  (_taskType == TaskType.Routine && _isRepetitive))
+                ListTile(
+                  title: Text(_scheduledTime == null
+                      ? 'No Scheduled Time'
+                      : 'Scheduled Time: ${_scheduledTime!.toLocal()}'),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: _pickScheduledTime,
+                ),
+              if (_taskType == TaskType.Routine && !_isRepetitive)
+                ListTile(
+                  title: Text(_partOfDay == null
+                      ? 'Select Part of Day'
+                      : 'Part of Day: ${partOfDayText(_partOfDay!)}'),
+                  trailing: const Icon(Icons.wb_sunny),
+                  onTap: _selectPartOfDay,
+                ),
+              const SizedBox(height: 10),
+              // Notification and Alarm Options
+              SwitchListTile(
+                title: const Text('Enable Notification'),
+                value: _wantsNotification,
+                onChanged: (bool value) {
+                  setState(() {
+                    _wantsNotification = value;
+                  });
+                },
               ),
+              if (_wantsNotification && _taskType == TaskType.Task)
+                SwitchListTile(
+                  title: const Text('Enable Alarm'),
+                  value: _hasAlarm,
+                  onChanged: (bool value) {
+                    setState(() {
+                      _hasAlarm = value;
+                    });
+                  },
+                ),
               const SizedBox(height: 10),
               // Priority Dropdown
               DropdownButtonFormField<TaskPriority>(

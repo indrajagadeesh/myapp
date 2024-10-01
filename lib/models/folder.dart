@@ -4,7 +4,7 @@ import 'package:hive/hive.dart';
 
 part 'folder.g.dart';
 
-@HiveType(typeId: 3)
+@HiveType(typeId: 4)
 class Folder extends HiveObject {
   @HiveField(0)
   String id;
@@ -13,7 +13,7 @@ class Folder extends HiveObject {
   String name;
 
   @HiveField(2)
-  bool isDefault; // Indicates if this is the default folder
+  bool isDefault;
 
   Folder({
     required this.id,

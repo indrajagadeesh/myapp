@@ -5,12 +5,10 @@ import 'package:provider/provider.dart';
 import '../providers/task_provider.dart';
 import '../models/task.dart';
 import '../utils/constants.dart';
-import '../widgets/stopwatch_widget.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final String taskId;
 
-  // Constructor requires taskId
   const TaskDetailScreen({required this.taskId, Key? key}) : super(key: key);
 
   @override
@@ -56,7 +54,6 @@ class TaskDetailScreen extends StatelessWidget {
               style: const TextStyle(fontSize: 16.0),
             ),
             const SizedBox(height: 20),
-            // Display additional task details here
             Row(
               children: [
                 Text('Priority: ${priorityText(task.priority)}'),
@@ -72,7 +69,6 @@ class TaskDetailScreen extends StatelessWidget {
                 ],
               ),
             const SizedBox(height: 10),
-            // Display subtasks
             if (task.subtasks.isNotEmpty)
               Expanded(
                 child: ListView(
@@ -90,8 +86,14 @@ class TaskDetailScreen extends StatelessWidget {
                   }).toList(),
                 ),
               ),
-            // Stopwatch Widget (if needed)
-            if (!task.isCompleted) StopwatchWidget(),
+            if (!task.isCompleted)
+              ElevatedButton(
+                onPressed: () {
+                  taskProvider.markTaskCompleted(task);
+                  Navigator.pop(context);
+                },
+                child: const Text('Mark as Complete'),
+              ),
           ],
         ),
       ),

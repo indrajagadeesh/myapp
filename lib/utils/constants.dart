@@ -79,3 +79,18 @@ String weekdayText(Weekday weekday) {
       return 'Unknown';
   }
 }
+
+String partOfDayText(PartOfDay partOfDay) {
+  switch (partOfDay) {
+    case PartOfDay.WakeUp:
+      return 'Wake Up';
+    case PartOfDay.Lunch:
+      return 'Lunch';
+    case PartOfDay.Evening:
+      return 'Evening';
+    case PartOfDay.Dinner:
+      return 'Dinner';
+    default:
+      return 'Unknown';
+  }
+}

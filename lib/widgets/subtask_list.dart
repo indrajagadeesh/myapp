@@ -12,19 +12,25 @@ class SubtaskList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      shrinkWrap: true,
-      children: subtasks.map((subtask) {
-        return CheckboxListTile(
-          value: subtask.isCompleted,
-          onChanged: (bool? value) {
-            if (value != null) {
-              onToggle(subtask);
-            }
-          },
-          title: Text(subtask.title),
-        );
-      }).toList(),
-    );
+    if (subtasks.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8.0),
+        child: Text('No subtasks added.'),
+      );
+    } else {
+      return Column(
+        children: subtasks.map((subtask) {
+          return CheckboxListTile(
+            value: subtask.isCompleted,
+            onChanged: (bool? value) {
+              if (value != null) {
+                onToggle(subtask);
+              }
+            },
+            title: Text(subtask.title),
+          );
+        }).toList(),
+      );
+    }
   }
 }

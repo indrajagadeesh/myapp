@@ -31,13 +31,14 @@ class TaskAdapter extends TypeAdapter<Task> {
       isRepetitive: fields[12] as bool,
       frequency: fields[13] as Frequency,
       selectedWeekdays: (fields[14] as List?)?.cast<Weekday>(),
+      partOfDay: fields[15] as PartOfDay?,
     )..timeSpentMicroseconds = fields[8] as int;
   }
 
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -67,7 +68,9 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(13)
       ..write(obj.frequency)
       ..writeByte(14)
-      ..write(obj.selectedWeekdays);
+      ..write(obj.selectedWeekdays)
+      ..writeByte(15)
+      ..write(obj.partOfDay);
   }
 
   @override
@@ -278,6 +281,55 @@ class WeekdayAdapter extends TypeAdapter<Weekday> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is WeekdayAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class PartOfDayAdapter extends TypeAdapter<PartOfDay> {
+  @override
+  final int typeId = 7;
+
+  @override
+  PartOfDay read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return PartOfDay.WakeUp;
+      case 1:
+        return PartOfDay.Lunch;
+      case 2:
+        return PartOfDay.Evening;
+      case 3:
+        return PartOfDay.Dinner;
+      default:
+        return PartOfDay.WakeUp;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, PartOfDay obj) {
+    switch (obj) {
+      case PartOfDay.WakeUp:
+        writer.writeByte(0);
+        break;
+      case PartOfDay.Lunch:
+        writer.writeByte(1);
+        break;
+      case PartOfDay.Evening:
+        writer.writeByte(2);
+        break;
+      case PartOfDay.Dinner:
+        writer.writeByte(3);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PartOfDayAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/task.dart';
 import '../models/folder.dart';
+import '../models/user_settings.dart';
 import '../utils/notification_service.dart';
 import 'package:uuid/uuid.dart';
 
@@ -26,7 +27,72 @@ class TaskProvider extends ChangeNotifier {
     routines = _taskBox.values
         .where((task) => task.taskType == TaskType.Routine)
         .toList();
+
+    // Check if default routines exist, if not create them
+    if (routines.isEmpty) {
+      await _createDefaultRoutines();
+    }
+
     notifyListeners();
+  }
+
+  Future<void> _createDefaultRoutines() async {
+    var userSettingsBox = Hive.box<UserSettings>('user_settings');
+    UserSettings? userSettings = userSettingsBox.get('settings');
+
+    if (userSettings != null) {
+      List<Task> defaultRoutines = [
+        Task(
+          id: const Uuid().v4(),
+          title: 'Wake Up',
+          description: 'Wake up routine',
+          taskType: TaskType.Routine,
+          isRepetitive: true,
+          frequency: Frequency.Daily,
+          partOfDay: PartOfDay.WakeUp,
+          scheduledTime: userSettings.wakeUpTime,
+          hasAlarm: false,
+        ),
+        Task(
+          id: const Uuid().v4(),
+          title: 'Lunch',
+          description: 'Lunch routine',
+          taskType: TaskType.Routine,
+          isRepetitive: true,
+          frequency: Frequency.Daily,
+          partOfDay: PartOfDay.Lunch,
+          scheduledTime: userSettings.lunchTime,
+          hasAlarm: false,
+        ),
+        Task(
+          id: const Uuid().v4(),
+          title: 'Evening',
+          description: 'Evening routine',
+          taskType: TaskType.Routine,
+          isRepetitive: true,
+          frequency: Frequency.Daily,
+          partOfDay: PartOfDay.Evening,
+          scheduledTime: userSettings.eveningTime,
+          hasAlarm: false,
+        ),
+        Task(
+          id: const Uuid().v4(),
+          title: 'Dinner',
+          description: 'Dinner routine',
+          taskType: TaskType.Routine,
+          isRepetitive: true,
+          frequency: Frequency.Daily,
+          partOfDay: PartOfDay.Dinner,
+          scheduledTime: userSettings.dinnerTime,
+          hasAlarm: false,
+        ),
+      ];
+
+      for (var routine in defaultRoutines) {
+        _taskBox.add(routine);
+        routines.add(routine);
+      }
+    }
   }
 
   void addTask(Task task) {

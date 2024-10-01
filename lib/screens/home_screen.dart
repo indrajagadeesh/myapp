@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/task_provider.dart';
 import '../models/task.dart';
-import '../utils/constants.dart';
+import '../widgets/task_list_item.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -19,6 +19,7 @@ class HomeScreen extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Text(
@@ -28,30 +29,7 @@ class HomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           ...tasks.map((task) {
-            return Card(
-              elevation: 2,
-              margin:
-                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-              child: ListTile(
-                leading: Icon(
-                  task.isCompleted
-                      ? Icons.check_circle
-                      : Icons.radio_button_unchecked,
-                  color: task.isCompleted ? Colors.green : Colors.grey,
-                ),
-                title: Text(task.title),
-                subtitle: Text(
-                    '${priorityText(task.priority)} • ${taskTypeText(task.taskType)}'),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  Navigator.pushNamed(
-                    context,
-                    '/task-detail',
-                    arguments: {'taskId': task.id},
-                  );
-                },
-              ),
-            );
+            return TaskListItem(task: task);
           }).toList(),
         ],
       );
@@ -85,9 +63,7 @@ class HomeScreen extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            const SizedBox(height: 16),
             _buildTaskList(context, tasks, 'Tasks'),
-            const SizedBox(height: 16),
             _buildTaskList(context, routines, 'Routines'),
           ],
         ),
