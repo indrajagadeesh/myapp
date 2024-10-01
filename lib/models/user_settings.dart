@@ -1,25 +1,27 @@
 // lib/models/user_settings.dart
 
 import 'package:hive/hive.dart';
+import 'package:flutter/material.dart';
+import 'time_of_day_adapter.dart'; // Import the adapter
 
 part 'user_settings.g.dart';
 
-@HiveType(typeId: 8)
+@HiveType(typeId: 5)
 class UserSettings extends HiveObject {
   @HiveField(0)
   String name;
 
   @HiveField(1)
-  DateTime wakeUpTime;
+  TimeOfDay wakeUpTime;
 
   @HiveField(2)
-  DateTime lunchTime;
+  TimeOfDay lunchTime;
 
   @HiveField(3)
-  DateTime eveningTime;
+  TimeOfDay eveningTime;
 
   @HiveField(4)
-  DateTime dinnerTime;
+  TimeOfDay dinnerTime;
 
   UserSettings({
     required this.name,

@@ -1,46 +1,36 @@
 // lib/widgets/frequency_selector.dart
 
 import 'package:flutter/material.dart';
-import '../models/task.dart';
+import '../models/enums.dart';
 import '../utils/constants.dart';
 
-class FrequencySelector extends StatefulWidget {
-  final Frequency frequency;
-  final Function(Frequency) onFrequencyChanged;
+class FrequencySelector extends StatelessWidget {
+  final Frequency? frequency;
+  final Function(Frequency?) onChanged;
 
-  const FrequencySelector(
-      {required this.frequency, required this.onFrequencyChanged, Key? key})
-      : super(key: key);
-
-  @override
-  _FrequencySelectorState createState() => _FrequencySelectorState();
-}
-
-class _FrequencySelectorState extends State<FrequencySelector> {
-  late Frequency _selectedFrequency;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedFrequency = widget.frequency;
-  }
+  const FrequencySelector({
+    required this.frequency,
+    required this.onChanged,
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<Frequency>(
-      value: _selectedFrequency,
+      value: frequency,
       decoration: const InputDecoration(labelText: 'Frequency'),
       items: Frequency.values.map((Frequency freq) {
         return DropdownMenuItem<Frequency>(
           value: freq,
-          child: Text(frequencyText(freq)),
+          child: Text(frequencyNames[freq]!),
         );
       }).toList(),
-      onChanged: (Frequency? newValue) {
-        setState(() {
-          _selectedFrequency = newValue ?? Frequency.Daily;
-          widget.onFrequencyChanged(_selectedFrequency);
-        });
+      onChanged: onChanged,
+      validator: (value) {
+        if (value == null) {
+          return 'Please select a frequency';
+        }
+        return null;
       },
     );
   }

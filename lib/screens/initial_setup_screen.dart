@@ -2,8 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/user_settings.dart';
 import '../providers/user_settings_provider.dart';
+import '../providers/folder_provider.dart';
+import '../models/user_settings.dart';
 
 class InitialSetupScreen extends StatefulWidget {
   const InitialSetupScreen({Key? key}) : super(key: key);
@@ -20,39 +21,40 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   TimeOfDay _eveningTime = const TimeOfDay(hour: 18, minute: 0);
   TimeOfDay _dinnerTime = const TimeOfDay(hour: 20, minute: 0);
 
-  Future<void> _selectTime(BuildContext context, String title,
-      TimeOfDay initialTime, Function(TimeOfDay) onTimeSelected) async {
+  Future<void> _selectTime(BuildContext context, TimeOfDay initialTime,
+      Function(TimeOfDay) onTimeSelected) async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: initialTime,
-      helpText: title,
     );
     if (picked != null && picked != initialTime) {
-      setState(() {
-        onTimeSelected(picked);
-      });
+      onTimeSelected(picked);
     }
   }
 
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
+  Future<void> _submit() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      _formKey.currentState?.save();
+
       final userSettingsProvider =
           Provider.of<UserSettingsProvider>(context, listen: false);
-      final now = DateTime.now();
-      userSettingsProvider.saveUserSettings(
-        UserSettings(
-          name: _name,
-          wakeUpTime: DateTime(now.year, now.month, now.day, _wakeUpTime.hour,
-              _wakeUpTime.minute),
-          lunchTime: DateTime(
-              now.year, now.month, now.day, _lunchTime.hour, _lunchTime.minute),
-          eveningTime: DateTime(now.year, now.month, now.day, _eveningTime.hour,
-              _eveningTime.minute),
-          dinnerTime: DateTime(now.year, now.month, now.day, _dinnerTime.hour,
-              _dinnerTime.minute),
-        ),
+      final folderProvider =
+          Provider.of<FolderProvider>(context, listen: false);
+
+      UserSettings settings = UserSettings(
+        name: _name,
+        wakeUpTime: _wakeUpTime,
+        lunchTime: _lunchTime,
+        eveningTime: _eveningTime,
+        dinnerTime: _dinnerTime,
       );
+
+      await userSettingsProvider.updateUserSettings(settings);
+
+      // Create default folder with user's name
+      await folderProvider.createDefaultFolder(_name);
+
+      // Navigate to Home Screen
       Navigator.pushReplacementNamed(context, '/home');
     }
   }
@@ -69,60 +71,79 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
           key: _formKey,
           child: ListView(
             children: [
-              const Text(
-                'Welcome! Please provide the following information:',
-                style: TextStyle(fontSize: 18),
-              ),
-              const SizedBox(height: 20),
-              // Name Field
+              // Name
               TextFormField(
                 decoration: const InputDecoration(labelText: 'Your Name'),
-                onSaved: (value) => _name = value ?? '',
-                validator: (value) => (value == null || value.isEmpty)
+                validator: (value) => value == null || value.isEmpty
                     ? 'Please enter your name'
                     : null,
+                onSaved: (value) => _name = value!,
               ),
               const SizedBox(height: 20),
-              // Wake Up Time
+              // Wake-up Time
               ListTile(
-                title: Text('Wake Up Time: ${_wakeUpTime.format(context)}'),
-                trailing: const Icon(Icons.access_time),
-                onTap: () => _selectTime(
-                    context, 'Select Wake Up Time', _wakeUpTime, (time) {
-                  _wakeUpTime = time;
-                }),
+                title: const Text('Wake-up Time'),
+                subtitle: Text(_wakeUpTime.format(context)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.access_time),
+                  onPressed: () {
+                    _selectTime(context, _wakeUpTime, (picked) {
+                      setState(() {
+                        _wakeUpTime = picked;
+                      });
+                    });
+                  },
+                ),
               ),
               // Lunch Time
               ListTile(
-                title: Text('Lunch Time: ${_lunchTime.format(context)}'),
-                trailing: const Icon(Icons.access_time),
-                onTap: () => _selectTime(
-                    context, 'Select Lunch Time', _lunchTime, (time) {
-                  _lunchTime = time;
-                }),
+                title: const Text('Lunch Time'),
+                subtitle: Text(_lunchTime.format(context)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.access_time),
+                  onPressed: () {
+                    _selectTime(context, _lunchTime, (picked) {
+                      setState(() {
+                        _lunchTime = picked;
+                      });
+                    });
+                  },
+                ),
               ),
               // Evening Time
               ListTile(
-                title: Text('Evening Time: ${_eveningTime.format(context)}'),
-                trailing: const Icon(Icons.access_time),
-                onTap: () => _selectTime(
-                    context, 'Select Evening Time', _eveningTime, (time) {
-                  _eveningTime = time;
-                }),
+                title: const Text('Evening Time'),
+                subtitle: Text(_eveningTime.format(context)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.access_time),
+                  onPressed: () {
+                    _selectTime(context, _eveningTime, (picked) {
+                      setState(() {
+                        _eveningTime = picked;
+                      });
+                    });
+                  },
+                ),
               ),
               // Dinner Time
               ListTile(
-                title: Text('Dinner Time: ${_dinnerTime.format(context)}'),
-                trailing: const Icon(Icons.access_time),
-                onTap: () => _selectTime(
-                    context, 'Select Dinner Time', _dinnerTime, (time) {
-                  _dinnerTime = time;
-                }),
+                title: const Text('Dinner Time'),
+                subtitle: Text(_dinnerTime.format(context)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.access_time),
+                  onPressed: () {
+                    _selectTime(context, _dinnerTime, (picked) {
+                      setState(() {
+                        _dinnerTime = picked;
+                      });
+                    });
+                  },
+                ),
               ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _submit,
-                child: const Text('Finish Setup'),
+                child: const Text('Complete Setup'),
               ),
             ],
           ),

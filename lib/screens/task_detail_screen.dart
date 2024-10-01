@@ -2,9 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/task_provider.dart';
 import '../models/task.dart';
-import '../utils/constants.dart';
+import '../providers/task_provider.dart';
+import '../models/enums.dart';
 
 class TaskDetailScreen extends StatelessWidget {
   final String taskId;
@@ -14,33 +14,36 @@ class TaskDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
-    final Task? task = _findTask(taskProvider, taskId);
+    final task = taskProvider.tasks.firstWhere((t) => t.id == taskId,
+        orElse: () => Task(
+              id: '',
+              title: 'Task Not Found',
+              taskType: TaskType.Task,
+              folderId: '',
+            ));
 
-    if (task == null) {
+    if (task.id.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Task Not Found')),
-        body: Center(child: Text('Task with ID $taskId not found.')),
+        appBar: AppBar(title: const Text('Task Detail')),
+        body: const Center(child: Text('Task not found')),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(task.title),
+        title: const Text('Task Detail'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
-              Navigator.pushNamed(
-                context,
-                '/add-task',
-                arguments: {'taskId': task.id},
-              );
+              // Navigate to edit screen
             },
           ),
           IconButton(
             icon: const Icon(Icons.delete),
             onPressed: () {
-              _confirmDelete(context, taskProvider, task.id);
+              taskProvider.deleteTask(task.id);
+              Navigator.pop(context);
             },
           ),
         ],
@@ -50,94 +53,75 @@ class TaskDetailScreen extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              task.description,
-              style: const TextStyle(fontSize: 16.0),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Text('Priority: ${priorityText(task.priority)}'),
-                const SizedBox(width: 20),
-                Text('Status: ${task.isCompleted ? "Completed" : "Pending"}'),
-              ],
+              task.title,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            if (task.hasAlarm && task.scheduledTime != null)
-              Row(
-                children: [
-                  Text('Scheduled Time: ${task.scheduledTime!.toLocal()}'),
-                ],
-              ),
+            Text(task.description),
             const SizedBox(height: 10),
-            if (task.subtasks.isNotEmpty)
-              Expanded(
-                child: ListView(
-                  children: task.subtasks.map((subtask) {
-                    return CheckboxListTile(
+            Text('Priority: ${task.priority.toString().split('.').last}'),
+            const SizedBox(height: 10),
+            Text('Type: ${task.taskType.toString().split('.').last}'),
+            const SizedBox(height: 10),
+            if (task.taskType == TaskType.Routine && task.partOfDay != null)
+              Text('Part of Day: ${task.partOfDay.toString().split('.').last}'),
+            const SizedBox(height: 10),
+            if (task.scheduledTime != null)
+              Text(
+                  'Scheduled Time: ${TimeOfDay.fromDateTime(task.scheduledTime!).format(context)}'),
+            const SizedBox(height: 10),
+            SwitchListTile(
+              title: const Text('Alarm'),
+              value: task.hasAlarm,
+              onChanged:
+                  task.taskType == TaskType.Routine && task.partOfDay != null
+                      ? null // Disable alarm switch if using PartOfDay
+                      : (bool value) {
+                          task.hasAlarm = value;
+                          taskProvider.updateTask(task);
+                        },
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Subtasks',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: task.subtasks.length,
+                itemBuilder: (context, index) {
+                  final subtask = task.subtasks[index];
+                  return ListTile(
+                    leading: Checkbox(
                       value: subtask.isCompleted,
                       onChanged: (bool? value) {
-                        if (value != null) {
-                          subtask.isCompleted = value;
-                          taskProvider.updateTask(task);
-                        }
+                        subtask.isCompleted = value ?? false;
+                        taskProvider.updateTask(task);
                       },
-                      title: Text(subtask.title),
-                    );
-                  }).toList(),
-                ),
-              ),
-            if (!task.isCompleted)
-              ElevatedButton(
-                onPressed: () {
-                  taskProvider.markTaskCompleted(task);
-                  Navigator.pop(context);
+                    ),
+                    title: Text(subtask.title),
+                    // Implement stopwatch if needed
+                  );
                 },
-                child: const Text('Mark as Complete'),
               ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Implement mark as complete or undo
+                task.isCompleted = !task.isCompleted;
+                if (task.isCompleted) {
+                  task.completedDate = DateTime.now();
+                } else {
+                  task.completedDate = null;
+                }
+                taskProvider.updateTask(task);
+              },
+              child:
+                  Text(task.isCompleted ? 'Undo Complete' : 'Mark as Complete'),
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Task? _findTask(TaskProvider taskProvider, String taskId) {
-    try {
-      return taskProvider.tasks.firstWhere((t) => t.id == taskId);
-    } catch (e) {
-      try {
-        return taskProvider.routines.firstWhere((t) => t.id == taskId);
-      } catch (e) {
-        return null;
-      }
-    }
-  }
-
-  void _confirmDelete(
-      BuildContext context, TaskProvider taskProvider, String taskId) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Delete Task'),
-          content: const Text('Are you sure you want to delete this task?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cancel
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                taskProvider.deleteTask(taskId);
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Go back to previous screen
-              },
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
     );
   }
 }

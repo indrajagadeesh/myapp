@@ -1,9 +1,6 @@
 // lib/screens/welcome_screen.dart
 
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'initial_setup_screen.dart';
-import 'home_screen.dart';
 import 'package:hive/hive.dart';
 import '../models/user_settings.dart';
 
@@ -15,34 +12,31 @@ class WelcomeScreen extends StatefulWidget {
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen> {
-  Future<bool> _checkIfFirstRun() async {
-    var box = Hive.box<UserSettings>('user_settings');
-    return box.isEmpty;
-  }
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _navigateToNext();
+    _initializeApp();
   }
 
-  void _navigateToNext() async {
-    await Future.delayed(
-        const Duration(seconds: 3)); // Duration of the animation
+  Future<void> _initializeApp() async {
+    await Future.delayed(const Duration(seconds: 3)); // Simulate loading time
 
     bool isFirstRun = await _checkIfFirstRun();
 
+    if (!mounted) return;
+
     if (isFirstRun) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const InitialSetupScreen()),
-      );
+      Navigator.pushReplacementNamed(context, '/initial-setup');
     } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      Navigator.pushReplacementNamed(context, '/home');
     }
+  }
+
+  Future<bool> _checkIfFirstRun() async {
+    var box = Hive.box<UserSettings>('user_settings');
+    return box.isEmpty;
   }
 
   @override
@@ -54,7 +48,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Logo or Icon
-            Icon(
+            const Icon(
               Icons.task_alt,
               size: 100.0,
               color: Colors.white,

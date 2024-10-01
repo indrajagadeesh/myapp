@@ -9,18 +9,28 @@ class UserSettingsProvider extends ChangeNotifier {
   UserSettings? userSettings;
 
   UserSettingsProvider() {
-    _init();
+    init();
   }
 
-  Future<void> _init() async {
+  Future<void> init() async {
     _userSettingsBox = Hive.box<UserSettings>('user_settings');
-    userSettings = _userSettingsBox.get('settings');
+
+    if (_userSettingsBox.isNotEmpty) {
+      userSettings = _userSettingsBox.getAt(0);
+    }
+
     notifyListeners();
   }
 
-  void saveUserSettings(UserSettings settings) {
-    _userSettingsBox.put('settings', settings);
+  Future<void> updateUserSettings(UserSettings settings) async {
     userSettings = settings;
+
+    if (_userSettingsBox.isEmpty) {
+      await _userSettingsBox.add(userSettings!);
+    } else {
+      await _userSettingsBox.putAt(0, userSettings!);
+    }
+
     notifyListeners();
   }
 }

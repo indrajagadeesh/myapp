@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/task.dart';
 import '../providers/task_provider.dart';
+import '../widgets/priority_indicator.dart';
 import '../utils/constants.dart';
+import '../screens/task_detail_screen.dart';
+import '../models/enums.dart';
 
 class TaskListItem extends StatelessWidget {
   final Task task;
@@ -13,33 +16,36 @@ class TaskListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: ListTile(
-        leading: Icon(
-          task.isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
-          color: task.isCompleted ? Colors.green : Colors.grey,
-        ),
-        title: Text(task.title),
-        subtitle: Text(
-            '${priorityText(task.priority)} • ${taskTypeText(task.taskType)}'),
-        trailing: IconButton(
-          icon: const Icon(Icons.check),
-          onPressed: () {
-            final taskProvider =
-                Provider.of<TaskProvider>(context, listen: false);
-            taskProvider.markTaskCompleted(task);
-          },
-        ),
-        onTap: () {
-          Navigator.pushNamed(
-            context,
-            '/task-detail',
-            arguments: {'taskId': task.id},
-          );
+    final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+
+    return ListTile(
+      leading: Checkbox(
+        value: task.isCompleted,
+        onChanged: (bool? value) {
+          task.isCompleted = value ?? false;
+          if (task.isCompleted) {
+            task.completedDate = DateTime.now();
+          } else {
+            task.completedDate = null;
+          }
+          taskProvider.updateTask(task);
         },
       ),
+      title: Text(task.title),
+      subtitle: Text(
+        task.taskType == TaskType.Routine && task.partOfDay != null
+            ? 'Routine - ${partOfDayNames[task.partOfDay]!}'
+            : 'Task',
+      ),
+      trailing: PriorityIndicator(priority: task.priority),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TaskDetailScreen(taskId: task.id),
+          ),
+        );
+      },
     );
   }
 }

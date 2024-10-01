@@ -5,72 +5,69 @@ import 'package:provider/provider.dart';
 import '../providers/task_provider.dart';
 import '../models/task.dart';
 import '../widgets/task_list_item.dart';
+import 'add_task_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
 
-  Widget _buildTaskList(BuildContext context, List<Task> tasks, String title) {
-    if (tasks.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Text('No $title available.'),
-      );
-    } else {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Text(
-              title,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-          ),
-          const SizedBox(height: 10),
-          ...tasks.map((task) {
-            return TaskListItem(task: task);
-          }).toList(),
-        ],
-      );
-    }
+  Widget _buildTaskList(List<Task> tasks) {
+    return ListView.builder(
+      shrinkWrap: true,
+      itemCount: tasks.length,
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        return TaskListItem(task: task);
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
-    final List<Task> tasks = taskProvider.tasks;
-    final List<Task> routines = taskProvider.routines;
+    final tasksForToday = taskProvider.getTasksForToday();
+    final completedTasks = taskProvider.getCompletedTasksForToday();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('TaskFlow'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.folder),
-            onPressed: () {
-              Navigator.pushNamed(context, '/folders');
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.bar_chart),
-            onPressed: () {
-              Navigator.pushNamed(context, '/reports');
-            },
-          ),
-        ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildTaskList(context, tasks, 'Tasks'),
-            _buildTaskList(context, routines, 'Routines'),
-          ],
-        ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: tasksForToday.isEmpty && completedTasks.isEmpty
+            ? const Center(child: Text('No tasks for today.'))
+            : SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (tasksForToday.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Today\'s Tasks',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          _buildTaskList(tasksForToday),
+                        ],
+                      ),
+                    if (completedTasks.isNotEmpty)
+                      ExpansionTile(
+                        title: const Text('Completed Tasks'),
+                        children: completedTasks
+                            .map((task) => TaskListItem(task: task))
+                            .toList(),
+                      ),
+                  ],
+                ),
+              ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.pushNamed(context, '/add-task');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddTaskScreen()),
+          );
         },
         child: const Icon(Icons.add),
       ),

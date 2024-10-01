@@ -3,131 +3,182 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../models/task.dart';
-import '../models/folder.dart';
-import '../models/user_settings.dart';
-import '../utils/notification_service.dart';
+import '../models/subtask.dart';
+import '../models/enums.dart';
+import 'folder_provider.dart';
+import 'user_settings_provider.dart';
 import 'package:uuid/uuid.dart';
+import '../utils/constants.dart';
 
 class TaskProvider extends ChangeNotifier {
   late Box<Task> _taskBox;
-  late Box<Folder> _folderBox;
   List<Task> tasks = [];
-  List<Task> routines = [];
+  final FolderProvider folderProvider;
+  final UserSettingsProvider userSettingsProvider;
 
-  TaskProvider() {
-    _init();
+  TaskProvider({
+    required this.folderProvider,
+    required this.userSettingsProvider,
+  }) {
+    init();
   }
 
-  Future<void> _init() async {
+  Future<void> init() async {
     _taskBox = Hive.box<Task>('tasks');
-    _folderBox = Hive.box<Folder>('folders');
-    tasks = _taskBox.values
-        .where((task) => task.taskType == TaskType.Task)
-        .toList();
-    routines = _taskBox.values
-        .where((task) => task.taskType == TaskType.Routine)
-        .toList();
+    tasks = _taskBox.values.toList();
 
-    // Check if default routines exist, if not create them
-    if (routines.isEmpty) {
-      await _createDefaultRoutines();
-    }
+    // Create default routines if they don't exist
+    await _createDefaultRoutines();
+
+    // Purge old tasks
+    _purgeOldTasks();
+
+    // Schedule daily routine creation
+    _scheduleDailyRoutines();
 
     notifyListeners();
   }
 
   Future<void> _createDefaultRoutines() async {
-    var userSettingsBox = Hive.box<UserSettings>('user_settings');
-    UserSettings? userSettings = userSettingsBox.get('settings');
+    List<PartOfDay> defaultParts = [
+      PartOfDay.WakeUp,
+      PartOfDay.Lunch,
+      PartOfDay.Evening,
+      PartOfDay.Dinner,
+    ];
 
-    if (userSettings != null) {
-      List<Task> defaultRoutines = [
-        Task(
+    for (var part in defaultParts) {
+      bool exists = tasks.any((task) =>
+          task.taskType == TaskType.Routine && task.partOfDay == part);
+      if (!exists) {
+        Task routine = Task(
           id: const Uuid().v4(),
-          title: 'Wake Up',
-          description: 'Wake up routine',
+          title: '${partOfDayNames[part]} Routine',
           taskType: TaskType.Routine,
+          folderId: folderProvider.getDefaultFolderId(),
+          partOfDay: part,
           isRepetitive: true,
           frequency: Frequency.Daily,
-          partOfDay: PartOfDay.WakeUp,
-          scheduledTime: userSettings.wakeUpTime,
           hasAlarm: false,
-        ),
-        Task(
-          id: const Uuid().v4(),
-          title: 'Lunch',
-          description: 'Lunch routine',
-          taskType: TaskType.Routine,
-          isRepetitive: true,
-          frequency: Frequency.Daily,
-          partOfDay: PartOfDay.Lunch,
-          scheduledTime: userSettings.lunchTime,
-          hasAlarm: false,
-        ),
-        Task(
-          id: const Uuid().v4(),
-          title: 'Evening',
-          description: 'Evening routine',
-          taskType: TaskType.Routine,
-          isRepetitive: true,
-          frequency: Frequency.Daily,
-          partOfDay: PartOfDay.Evening,
-          scheduledTime: userSettings.eveningTime,
-          hasAlarm: false,
-        ),
-        Task(
-          id: const Uuid().v4(),
-          title: 'Dinner',
-          description: 'Dinner routine',
-          taskType: TaskType.Routine,
-          isRepetitive: true,
-          frequency: Frequency.Daily,
-          partOfDay: PartOfDay.Dinner,
-          scheduledTime: userSettings.dinnerTime,
-          hasAlarm: false,
-        ),
-      ];
-
-      for (var routine in defaultRoutines) {
-        _taskBox.add(routine);
-        routines.add(routine);
+          priority: TaskPriority.Regular,
+          subtasks: [],
+          scheduledTime: _getScheduledTimeForPartOfDay(part),
+        );
+        await _taskBox.add(routine);
+        tasks.add(routine);
       }
     }
   }
 
+  DateTime? _getScheduledTimeForPartOfDay(PartOfDay part) {
+    TimeOfDay? timeOfDay;
+    switch (part) {
+      case PartOfDay.WakeUp:
+        timeOfDay = userSettingsProvider.userSettings?.wakeUpTime;
+        break;
+      case PartOfDay.Lunch:
+        timeOfDay = userSettingsProvider.userSettings?.lunchTime;
+        break;
+      case PartOfDay.Evening:
+        timeOfDay = userSettingsProvider.userSettings?.eveningTime;
+        break;
+      case PartOfDay.Dinner:
+        timeOfDay = userSettingsProvider.userSettings?.dinnerTime;
+        break;
+    }
+    if (timeOfDay != null) {
+      return DateTime(
+        DateTime.now().year,
+        DateTime.now().month,
+        DateTime.now().day,
+        timeOfDay.hour,
+        timeOfDay.minute,
+      );
+    }
+    return null;
+  }
+
+  void _purgeOldTasks() {
+    DateTime cutoffDate = DateTime.now().subtract(const Duration(days: 60));
+    tasks.removeWhere((task) {
+      if (task.completedDate != null &&
+          task.completedDate!.isBefore(cutoffDate)) {
+        task.delete();
+        return true;
+      }
+      return false;
+    });
+  }
+
+  void _scheduleDailyRoutines() {
+    // Check for routines that need to be scheduled today
+    DateTime today = DateTime.now();
+    List<Task> routinesToSchedule = [];
+
+    for (var routine in tasks.where((t) => t.isRepetitive)) {
+      bool isScheduledToday = tasks.any((t) =>
+          t.isRepetitive &&
+          t.title == routine.title &&
+          t.scheduledTime != null &&
+          t.scheduledTime!.day == today.day &&
+          t.scheduledTime!.month == today.month &&
+          t.scheduledTime!.year == today.year);
+
+      if (!isScheduledToday) {
+        routinesToSchedule.add(routine);
+      }
+    }
+
+    for (var routine in routinesToSchedule) {
+      Task newRoutine = Task(
+        id: const Uuid().v4(),
+        title: routine.title,
+        description: routine.description,
+        taskType: TaskType.Routine,
+        isCompleted: false,
+        scheduledTime: _getScheduledTimeForPartOfDay(routine.partOfDay!),
+        hasAlarm: routine.hasAlarm,
+        priority: routine.priority,
+        subtasks: routine.subtasks,
+        folderId: routine.folderId,
+        isRepetitive: routine.isRepetitive,
+        frequency: routine.frequency,
+        partOfDay: routine.partOfDay,
+      );
+      _taskBox.add(newRoutine);
+      tasks.add(newRoutine);
+    }
+  }
+
+  bool _isRoutineScheduledForToday(Task routine, DateTime today) {
+    return tasks.any((task) =>
+        task.taskType == TaskType.Routine &&
+        task.title == routine.title &&
+        task.scheduledTime != null &&
+        task.scheduledTime!.day == today.day &&
+        task.scheduledTime!.month == today.month &&
+        task.scheduledTime!.year == today.year);
+  }
+
   void addTask(Task task) {
-    // Assign default folder if none selected
-    if (task.folderId == null) {
-      task.folderId = _getDefaultFolderId();
-    }
     _taskBox.add(task);
-    if (task.taskType == TaskType.Task) {
-      tasks.add(task);
-    } else {
-      routines.add(task);
-    }
-    if (task.hasAlarm && task.scheduledTime != null) {
-      NotificationService.scheduleNotification(task);
-    }
+    tasks.add(task);
     notifyListeners();
   }
 
-  String _getDefaultFolderId() {
-    // Fetch the default folder from Hive or create one if it doesn't exist
-    Folder defaultFolder;
+  void deleteTask(String taskId) {
+    Task? task;
     try {
-      defaultFolder =
-          _folderBox.values.firstWhere((folder) => folder.isDefault);
+      task = tasks.firstWhere((t) => t.id == taskId);
     } catch (e) {
-      // Create a default folder if it doesn't exist
-      defaultFolder = Folder(
-        id: const Uuid().v4(),
-        name: 'Default',
-        isDefault: true,
-      );
-      _folderBox.add(defaultFolder);
+      task = null;
     }
-    return defaultFolder.id;
+
+    if (task != null) {
+      task.delete();
+      tasks.remove(task);
+      notifyListeners();
+    }
   }
 
   void updateTask(Task task) {
@@ -135,47 +186,53 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void deleteTask(String taskId) {
+  void moveTaskToFolder(String taskId, String folderId) {
     Task? task;
     try {
-      task = _taskBox.values.firstWhere((t) => t.id == taskId);
+      task = tasks.firstWhere((t) => t.id == taskId);
     } catch (e) {
       task = null;
     }
+
     if (task != null) {
-      if (task.hasAlarm) {
-        NotificationService.cancelNotification(task.key as int);
-      }
-      task.delete();
-      if (task.taskType == TaskType.Task) {
-        tasks.removeWhere((t) => t.id == taskId);
-      } else {
-        routines.removeWhere((t) => t.id == taskId);
-      }
+      task.folderId = folderId;
+      task.save();
       notifyListeners();
     }
   }
 
-  void markTaskCompleted(Task task) {
-    task.isCompleted = true;
-    task.completedDate = DateTime.now();
-    task.save();
-    if (task.hasAlarm) {
-      NotificationService.cancelNotification(task.key as int);
-    }
-    notifyListeners();
+  List<Task> getTasksForToday() {
+    DateTime today = DateTime.now();
+    return tasks.where((task) {
+      if (task.isRepetitive) {
+        return true;
+      } else if (task.scheduledTime != null) {
+        return task.scheduledTime!.day == today.day &&
+            task.scheduledTime!.month == today.month &&
+            task.scheduledTime!.year == today.year;
+      }
+      return false;
+    }).toList();
   }
 
-  List<Task> getTasksByFolder(String? folderId, TaskType type) {
-    if (type == TaskType.Task) {
-      return tasks.where((task) => task.folderId == folderId).toList();
-    } else {
-      return routines.where((task) => task.folderId == folderId).toList();
-    }
+  List<Task> getCompletedTasksForToday() {
+    DateTime today = DateTime.now();
+    return tasks.where((task) {
+      if (task.isCompleted && task.completedDate != null) {
+        return task.completedDate!.day == today.day &&
+            task.completedDate!.month == today.month &&
+            task.completedDate!.year == today.year;
+      }
+      return false;
+    }).toList();
   }
 
-  void moveTaskToFolder(Task task, String newFolderId) {
-    task.folderId = newFolderId;
-    updateTask(task);
+  List<Task> getTasksForFolder(String folderId) {
+    return tasks.where((task) => task.folderId == folderId).toList();
+  }
+
+  List<Task> getArchivedTasks() {
+    String archiveFolderId = folderProvider.getArchiveFolderId();
+    return tasks.where((task) => task.folderId == archiveFolderId).toList();
   }
 }

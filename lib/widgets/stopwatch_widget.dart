@@ -1,79 +1,94 @@
 // lib/widgets/stopwatch_widget.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart'; // Import Ticker
 import 'dart:async';
 
 class StopwatchWidget extends StatefulWidget {
-  const StopwatchWidget({Key? key}) : super(key: key);
+  final Duration initialDuration;
+  final Function(Duration) onTimeChange;
+
+  const StopwatchWidget({
+    required this.initialDuration,
+    required this.onTimeChange,
+    Key? key,
+  }) : super(key: key);
 
   @override
   _StopwatchWidgetState createState() => _StopwatchWidgetState();
 }
 
-class _StopwatchWidgetState extends State<StopwatchWidget> {
-  Timer? _timer;
-  Duration _elapsed = Duration.zero;
+class _StopwatchWidgetState extends State<StopwatchWidget>
+    with SingleTickerProviderStateMixin {
+  late Duration _duration;
+  late Stopwatch _stopwatch;
+  late Ticker _ticker;
 
-  void _startTimer() {
-    if (_timer != null) return; // Prevent multiple timers
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  @override
+  void initState() {
+    super.initState();
+    _duration = widget.initialDuration;
+    _stopwatch = Stopwatch();
+    _ticker = createTicker(_onTick);
+  }
+
+  void _onTick(Duration elapsed) {
+    if (_stopwatch.isRunning) {
       setState(() {
-        _elapsed += const Duration(seconds: 1);
+        _duration = widget.initialDuration + _stopwatch.elapsed;
       });
-    });
-  }
-
-  void _stopTimer() {
-    _timer?.cancel();
-    _timer = null;
-  }
-
-  void _resetTimer() {
-    _stopTimer();
-    setState(() {
-      _elapsed = Duration.zero;
-    });
+      widget.onTimeChange(_duration);
+    }
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _ticker.dispose();
+    _stopwatch.stop();
     super.dispose();
   }
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    final seconds = duration.inSeconds % 60;
+    if (hours > 0) {
+      return '${twoDigits(hours)}:${twoDigits(minutes)}:${twoDigits(seconds)}';
+    } else {
+      return '${twoDigits(minutes)}:${twoDigits(seconds)}';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Row(
       children: [
-        Text(
-          _formatDuration(_elapsed),
-          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+        Text('Time: ${_formatDuration(_duration)}'),
+        IconButton(
+          icon: Icon(_stopwatch.isRunning ? Icons.pause : Icons.play_arrow),
+          onPressed: () {
+            setState(() {
+              if (_stopwatch.isRunning) {
+                _stopwatch.stop();
+                _ticker.stop();
+              } else {
+                _stopwatch.start();
+                _ticker.start();
+              }
+            });
+          },
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: _startTimer,
-              child: const Text('Start'),
-            ),
-            const SizedBox(width: 20),
-            ElevatedButton(
-              onPressed: _stopTimer,
-              child: const Text('Stop'),
-            ),
-            const SizedBox(width: 20),
-            ElevatedButton(
-              onPressed: _resetTimer,
-              child: const Text('Reset'),
-            ),
-          ],
+        IconButton(
+          icon: const Icon(Icons.stop),
+          onPressed: () {
+            setState(() {
+              _stopwatch.reset();
+              _duration = widget.initialDuration;
+              _ticker.stop();
+            });
+            widget.onTimeChange(_duration);
+          },
         ),
       ],
     );

@@ -4,7 +4,7 @@ import 'package:hive/hive.dart';
 
 part 'folder.g.dart';
 
-@HiveType(typeId: 4)
+@HiveType(typeId: 6)
 class Folder extends HiveObject {
   @HiveField(0)
   String id;

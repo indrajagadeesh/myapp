@@ -7,6 +7,8 @@ import 'models/task.dart';
 import 'models/subtask.dart';
 import 'models/folder.dart';
 import 'models/user_settings.dart';
+import 'models/enums.dart';
+import 'models/time_of_day_adapter.dart';
 import 'providers/task_provider.dart';
 import 'providers/folder_provider.dart';
 import 'providers/user_settings_provider.dart';
@@ -25,102 +27,106 @@ void main() async {
 
   await Hive.initFlutter();
 
-  // Register TypeAdapters with checks
-  if (!Hive.isAdapterRegistered(TaskTypeAdapter().typeId)) {
-    Hive.registerAdapter(TaskTypeAdapter());
-  }
-  if (!Hive.isAdapterRegistered(TaskPriorityAdapter().typeId)) {
-    Hive.registerAdapter(TaskPriorityAdapter());
-  }
-  if (!Hive.isAdapterRegistered(TaskAdapter().typeId)) {
-    Hive.registerAdapter(TaskAdapter());
-  }
-  if (!Hive.isAdapterRegistered(FolderAdapter().typeId)) {
-    Hive.registerAdapter(FolderAdapter());
-  }
-  if (!Hive.isAdapterRegistered(SubtaskAdapter().typeId)) {
-    Hive.registerAdapter(SubtaskAdapter());
-  }
-  if (!Hive.isAdapterRegistered(FrequencyAdapter().typeId)) {
-    Hive.registerAdapter(FrequencyAdapter());
-  }
-  if (!Hive.isAdapterRegistered(WeekdayAdapter().typeId)) {
-    Hive.registerAdapter(WeekdayAdapter());
-  }
-  if (!Hive.isAdapterRegistered(UserSettingsAdapter().typeId)) {
-    Hive.registerAdapter(UserSettingsAdapter());
-  }
-  if (!Hive.isAdapterRegistered(PartOfDayAdapter().typeId)) {
-    Hive.registerAdapter(PartOfDayAdapter());
-  }
+  // Register TypeAdapters
+  Hive.registerAdapter(TaskTypeAdapter());
+  Hive.registerAdapter(TaskPriorityAdapter());
+  Hive.registerAdapter(FrequencyAdapter());
+  Hive.registerAdapter(PartOfDayAdapter());
+  Hive.registerAdapter(TimeOfDayAdapter());
+  Hive.registerAdapter(UserSettingsAdapter());
+  Hive.registerAdapter(FolderAdapter());
+  Hive.registerAdapter(TaskAdapter());
+  Hive.registerAdapter(SubtaskAdapter());
+
+  // Open Hive Boxes
+  await Hive.openBox<UserSettings>('user_settings');
+  await Hive.openBox<Folder>('folders');
+  await Hive.openBox<Task>('tasks');
 
   // Initialize Notifications
   await NotificationService.initialize();
 
-  // Open Hive Boxes
-  await Hive.openBox<Task>('tasks');
-  await Hive.openBox<Folder>('folders');
-  await Hive.openBox<Subtask>('subtasks');
-  await Hive.openBox<UserSettings>('user_settings');
-
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  MyApp({Key? key}) : super(key: key);
 
-  // Removed _checkIfFirstRun method since it's now handled in WelcomeScreen
+  final UserSettingsProvider _userSettingsProvider = UserSettingsProvider();
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<TaskProvider>(
-          create: (_) => TaskProvider(),
+        ChangeNotifierProvider<UserSettingsProvider>(
+          create: (_) => _userSettingsProvider,
         ),
         ChangeNotifierProvider<FolderProvider>(
           create: (_) => FolderProvider(),
         ),
-        ChangeNotifierProvider<UserSettingsProvider>(
-          create: (_) => UserSettingsProvider(),
+        ChangeNotifierProxyProvider2<FolderProvider, UserSettingsProvider,
+            TaskProvider>(
+          create: (context) => TaskProvider(
+            folderProvider: Provider.of<FolderProvider>(context, listen: false),
+            userSettingsProvider:
+                Provider.of<UserSettingsProvider>(context, listen: false),
+          ),
+          update:
+              (context, folderProvider, userSettingsProvider, taskProvider) =>
+                  taskProvider!..notifyListeners(),
         ),
       ],
-      child: MaterialApp(
-        title: 'TaskFlow',
-        theme: appTheme,
-        home: const WelcomeScreen(), // Show the WelcomeScreen first
-        onGenerateRoute: (settings) {
-          if (settings.name == '/add-task') {
-            final args = settings.arguments as Map<String, dynamic>?;
-            final String? taskId = args != null ? args['taskId'] : null;
-            return MaterialPageRoute(
-              builder: (context) => AddTaskScreen(taskId: taskId),
+      child: Consumer<UserSettingsProvider>(
+        builder: (context, userSettingsProvider, child) {
+          // If user settings are not set, navigate to Initial Setup
+          if (userSettingsProvider.userSettings == null ||
+              userSettingsProvider.userSettings!.name.isEmpty) {
+            return MaterialApp(
+              title: 'TaskFlow',
+              theme: appTheme,
+              home: const InitialSetupScreen(),
+              onGenerateRoute: (settings) {
+                // Define routes if needed
+                return null;
+              },
             );
           }
-          if (settings.name == '/task-detail') {
-            final args = settings.arguments as Map<String, dynamic>;
-            final String taskId = args['taskId'];
-            return MaterialPageRoute(
-              builder: (context) => TaskDetailScreen(taskId: taskId),
-            );
-          }
-          switch (settings.name) {
-            case '/home':
-              return MaterialPageRoute(
-                  builder: (context) => const HomeScreen());
-            case '/folders':
-              return MaterialPageRoute(
-                  builder: (context) => const FolderScreen());
-            case '/reports':
-              return MaterialPageRoute(
-                  builder: (context) => const ReportScreen());
-            case '/initial-setup':
-              return MaterialPageRoute(
-                  builder: (context) => const InitialSetupScreen());
-            default:
-              return MaterialPageRoute(
-                  builder: (context) => const HomeScreen());
-          }
+
+          return MaterialApp(
+            title: 'TaskFlow',
+            theme: appTheme,
+            home: const WelcomeScreen(),
+            onGenerateRoute: (settings) {
+              if (settings.name == '/add-task') {
+                final args = settings.arguments as Map<String, dynamic>?;
+                final String? taskId = args != null ? args['taskId'] : null;
+                return MaterialPageRoute(
+                  builder: (context) => AddTaskScreen(taskId: taskId),
+                );
+              }
+              if (settings.name == '/task-detail') {
+                final args = settings.arguments as Map<String, dynamic>;
+                final String taskId = args['taskId'];
+                return MaterialPageRoute(
+                  builder: (context) => TaskDetailScreen(taskId: taskId),
+                );
+              }
+              switch (settings.name) {
+                case '/home':
+                  return MaterialPageRoute(
+                      builder: (context) => const HomeScreen());
+                case '/folders':
+                  return MaterialPageRoute(
+                      builder: (context) => const FolderScreen());
+                case '/reports':
+                  return MaterialPageRoute(
+                      builder: (context) => const ReportScreen());
+                default:
+                  return MaterialPageRoute(
+                      builder: (context) => const HomeScreen());
+              }
+            },
+          );
         },
       ),
     );

@@ -8,7 +8,7 @@ part of 'folder.dart';
 
 class FolderAdapter extends TypeAdapter<Folder> {
   @override
-  final int typeId = 4;
+  final int typeId = 6;
 
   @override
   Folder read(BinaryReader reader) {

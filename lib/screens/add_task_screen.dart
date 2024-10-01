@@ -2,17 +2,20 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
-import '../providers/task_provider.dart';
 import '../models/task.dart';
+import '../models/folder.dart';
+import '../models/enums.dart';
 import '../models/subtask.dart';
+import '../providers/task_provider.dart';
+import '../providers/folder_provider.dart';
+import '../widgets/frequency_selector.dart';
+import '../widgets/priority_indicator.dart';
 import '../utils/constants.dart';
-import '../widgets/subtask_list.dart';
+import 'package:uuid/uuid.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final String? taskId;
 
-  // Constructor accepts optional taskId for editing
   const AddTaskScreen({this.taskId, Key? key}) : super(key: key);
 
   @override
@@ -24,224 +27,124 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   String _title = '';
   String _description = '';
   TaskType _taskType = TaskType.Task;
-  DateTime? _scheduledTime;
+  TimeOfDay? _scheduledTime;
   bool _hasAlarm = false;
   TaskPriority _priority = TaskPriority.Regular;
   List<Subtask> _subtasks = [];
-
-  // New fields for frequency and weekdays
-  bool _isRepetitive = false;
-  Frequency _frequency = Frequency.Daily;
-  List<Weekday> _selectedWeekdays = [];
-  PartOfDay? _partOfDay; // New field
-  bool _wantsNotification = true; // New field
+  String? _selectedFolderId;
+  Frequency? _frequency;
+  PartOfDay? _partOfDay;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialize();
+    });
+  }
+
+  void _initialize() {
+    final folderProvider = Provider.of<FolderProvider>(context, listen: false);
+    _selectedFolderId = folderProvider.getDefaultFolderId();
+
     if (widget.taskId != null) {
       final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-      final Task? task = _findTask(taskProvider, widget.taskId!);
-
-      if (task != null) {
-        _title = task.title;
-        _description = task.description;
-        _taskType = task.taskType;
-        _scheduledTime = task.scheduledTime;
-        _hasAlarm = task.hasAlarm;
-        _priority = task.priority;
-        _subtasks = List.from(task.subtasks);
-        _isRepetitive = task.isRepetitive;
-        _frequency = task.frequency;
-        _selectedWeekdays = task.selectedWeekdays ?? [];
-        _partOfDay = task.partOfDay;
-        _wantsNotification =
-            true; // Assuming user wants notification by default
-      }
-    }
-  }
-
-  Task? _findTask(TaskProvider taskProvider, String taskId) {
-    try {
-      return taskProvider.tasks.firstWhere((t) => t.id == taskId);
-    } catch (e) {
-      try {
-        return taskProvider.routines.firstWhere((t) => t.id == taskId);
-      } catch (e) {
-        return null;
-      }
-    }
-  }
-
-  void _submit() {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-
-      // Validate that scheduledTime is in the future if hasAlarm is true
-      if (_hasAlarm && _scheduledTime != null) {
-        if (_scheduledTime!.isBefore(DateTime.now())) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Scheduled time must be in the future.'),
-            ),
-          );
-          return;
-        }
-      }
-
-      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-
-      if (widget.taskId != null) {
-        // Update existing task
-        final Task? task = _findTask(taskProvider, widget.taskId!);
-        if (task != null) {
-          task.title = _title;
-          task.description = _description;
-          task.taskType = _taskType;
-          task.scheduledTime = _scheduledTime;
-          task.hasAlarm = _hasAlarm;
-          task.priority = _priority;
-          task.subtasks = _subtasks;
-          task.isRepetitive = _isRepetitive;
-          task.frequency = _frequency;
-          task.selectedWeekdays = _selectedWeekdays;
-          task.partOfDay = _partOfDay;
-          taskProvider.updateTask(task);
-        }
-      } else {
-        // Create new task
-        final newTask = Task(
-          id: const Uuid().v4(),
-          title: _title,
-          description: _description,
-          taskType: _taskType,
-          scheduledTime: _scheduledTime,
-          hasAlarm: _hasAlarm,
-          priority: _priority,
-          subtasks: _subtasks,
-          isRepetitive: _isRepetitive,
-          frequency: _frequency,
-          selectedWeekdays: _selectedWeekdays,
-          partOfDay: _partOfDay,
-        );
-        taskProvider.addTask(newTask);
-      }
-      Navigator.pop(context);
-    }
-  }
-
-  void _showWeekdaySelectionDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        List<Weekday> weekdays = Weekday.values;
-        return AlertDialog(
-          title: const Text('Select Days'),
-          content: SingleChildScrollView(
-            child: Column(
-              children: weekdays.map((weekday) {
-                return CheckboxListTile(
-                  title: Text(weekdayText(weekday)),
-                  value: _selectedWeekdays.contains(weekday),
-                  onChanged: (bool? value) {
-                    setState(() {
-                      if (value == true) {
-                        _selectedWeekdays.add(weekday);
-                      } else {
-                        _selectedWeekdays.remove(weekday);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Done'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _pickScheduledTime() async {
-    final DateTime now = DateTime.now();
-    final DateTime initialDate = _scheduledTime ?? now;
-    final DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: initialDate.isBefore(now) ? now : initialDate,
-      firstDate: now,
-      lastDate: DateTime(2100),
-    );
-    if (pickedDate != null) {
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: _scheduledTime != null
-            ? TimeOfDay.fromDateTime(_scheduledTime!)
-            : TimeOfDay.now(),
+      final existingTask = taskProvider.tasks.firstWhere(
+        (task) => task.id == widget.taskId,
+        orElse: () => Task(
+          id: '',
+          title: '',
+          taskType: TaskType.Task,
+          folderId: _selectedFolderId!,
+        ),
       );
-      if (pickedTime != null) {
-        final DateTime pickedDateTime = DateTime(
-          pickedDate.year,
-          pickedDate.month,
-          pickedDate.day,
-          pickedTime.hour,
-          pickedTime.minute,
-        );
-        if (pickedDateTime.isBefore(now)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Scheduled time must be in the future.'),
-            ),
-          );
-          return;
-        }
+      if (existingTask.id.isNotEmpty) {
         setState(() {
-          _scheduledTime = pickedDateTime;
-          _hasAlarm = true;
+          _title = existingTask.title;
+          _description = existingTask.description;
+          _taskType = existingTask.taskType;
+          _scheduledTime = existingTask.scheduledTime != null
+              ? TimeOfDay.fromDateTime(existingTask.scheduledTime!)
+              : null;
+          _hasAlarm = existingTask.hasAlarm;
+          _priority = existingTask.priority;
+          _subtasks = List<Subtask>.from(existingTask.subtasks);
+          _selectedFolderId = existingTask.folderId;
+          _frequency = existingTask.frequency;
+          _partOfDay = existingTask.partOfDay;
         });
       }
     }
   }
 
-  void _selectPartOfDay() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        List<PartOfDay> parts = PartOfDay.values;
-        return AlertDialog(
-          title: const Text('Select Part of Day'),
-          content: SingleChildScrollView(
-            child: Column(
-              children: parts.map((part) {
-                return RadioListTile<PartOfDay>(
-                  title: Text(partOfDayText(part)),
-                  value: part,
-                  groupValue: _partOfDay,
-                  onChanged: (PartOfDay? value) {
-                    setState(() {
-                      _partOfDay = value;
-                      Navigator.pop(context);
-                    });
-                  },
-                );
-              }).toList(),
-            ),
+  void _submit() {
+    if (_formKey.currentState?.validate() ?? false) {
+      _formKey.currentState?.save();
+      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+
+      if (_taskType == TaskType.Routine &&
+          _scheduledTime == null &&
+          _partOfDay == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Please provide either a time or select a part of day.'),
           ),
         );
-      },
-    );
+        return;
+      }
+
+      Task task = Task(
+        id: widget.taskId ?? const Uuid().v4(),
+        title: _title,
+        description: _description,
+        taskType: _taskType,
+        scheduledTime: _scheduledTime != null
+            ? DateTime(
+                DateTime.now().year,
+                DateTime.now().month,
+                DateTime.now().day,
+                _scheduledTime!.hour,
+                _scheduledTime!.minute,
+              )
+            : null,
+        hasAlarm: _hasAlarm,
+        priority: _priority,
+        subtasks: _subtasks,
+        folderId: _selectedFolderId!,
+        isRepetitive: _taskType == TaskType.Routine,
+        frequency: _taskType == TaskType.Routine ? _frequency : null,
+        partOfDay: _taskType == TaskType.Routine ? _partOfDay : null,
+      );
+
+      if (widget.taskId != null) {
+        taskProvider.updateTask(task);
+      } else {
+        taskProvider.addTask(task);
+      }
+
+      Navigator.pop(context);
+    }
+  }
+
+  void _addSubtask() {
+    setState(() {
+      _subtasks.add(Subtask(id: const Uuid().v4(), title: ''));
+    });
+  }
+
+  void _removeSubtask(int index) {
+    setState(() {
+      _subtasks.removeAt(index);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.taskId != null;
+    final folderProvider = Provider.of<FolderProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Task' : 'Add Task'),
+        title: Text(widget.taskId != null ? 'Edit Task' : 'Add Task'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -249,123 +152,138 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           key: _formKey,
           child: ListView(
             children: [
-              // Title Field
+              // Title
               TextFormField(
                 initialValue: _title,
                 decoration: const InputDecoration(labelText: 'Title'),
-                onSaved: (value) => _title = value ?? '',
-                validator: (value) => (value == null || value.isEmpty)
+                validator: (value) => value == null || value.isEmpty
                     ? 'Please enter a title'
                     : null,
+                onSaved: (value) => _title = value!,
               ),
               const SizedBox(height: 10),
-              // Description Field
+              // Description
               TextFormField(
                 initialValue: _description,
                 decoration: const InputDecoration(labelText: 'Description'),
                 onSaved: (value) => _description = value ?? '',
-                validator: (value) => (value == null || value.isEmpty)
-                    ? 'Please enter a description'
-                    : null,
               ),
               const SizedBox(height: 10),
-              // Task Type Dropdown
+              // Task Type
               DropdownButtonFormField<TaskType>(
                 value: _taskType,
                 decoration: const InputDecoration(labelText: 'Task Type'),
                 items: TaskType.values.map((TaskType type) {
                   return DropdownMenuItem<TaskType>(
                     value: type,
-                    child: Text(taskTypeText(type)),
+                    child: Text(type.toString().split('.').last),
                   );
                 }).toList(),
                 onChanged: (TaskType? newValue) {
-                  setState(() {
-                    _taskType = newValue ?? TaskType.Task;
-                    if (_taskType == TaskType.Task) {
-                      _isRepetitive = false;
-                    }
-                  });
+                  if (newValue != null) {
+                    setState(() {
+                      _taskType = newValue;
+                      if (_taskType != TaskType.Routine) {
+                        _frequency = null;
+                        _partOfDay = null;
+                      }
+                    });
+                  }
                 },
               ),
               const SizedBox(height: 10),
-              // Show "Is Repetitive" only for Routines
+              // Frequency (only for Routine)
               if (_taskType == TaskType.Routine)
-                SwitchListTile(
-                  title: const Text('Is Repetitive'),
-                  value: _isRepetitive,
-                  onChanged: (bool value) {
-                    setState(() {
-                      _isRepetitive = value;
-                    });
-                  },
-                ),
-              if (_taskType == TaskType.Routine && _isRepetitive) ...[
-                // Frequency Dropdown
                 DropdownButtonFormField<Frequency>(
                   value: _frequency,
                   decoration: const InputDecoration(labelText: 'Frequency'),
                   items: Frequency.values.map((Frequency freq) {
                     return DropdownMenuItem<Frequency>(
                       value: freq,
-                      child: Text(frequencyText(freq)),
+                      child: Text(frequencyNames[freq]!),
                     );
                   }).toList(),
                   onChanged: (Frequency? newValue) {
                     setState(() {
-                      _frequency = newValue ?? Frequency.Daily;
+                      _frequency = newValue;
                     });
                   },
-                ),
-                const SizedBox(height: 10),
-                // Weekday Selection
-                ElevatedButton(
-                  onPressed: _showWeekdaySelectionDialog,
-                  child: const Text('Select Days'),
-                ),
-                if (_selectedWeekdays.isNotEmpty)
-                  Wrap(
-                    spacing: 8.0,
-                    children: _selectedWeekdays.map((weekday) {
-                      return Chip(
-                        label: Text(weekdayText(weekday)),
-                      );
-                    }).toList(),
-                  ),
-                const SizedBox(height: 10),
-              ],
-              // Scheduled Time or Part of Day
-              if (_taskType == TaskType.Task ||
-                  (_taskType == TaskType.Routine && _isRepetitive))
-                ListTile(
-                  title: Text(_scheduledTime == null
-                      ? 'No Scheduled Time'
-                      : 'Scheduled Time: ${_scheduledTime!.toLocal()}'),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: _pickScheduledTime,
-                ),
-              if (_taskType == TaskType.Routine && !_isRepetitive)
-                ListTile(
-                  title: Text(_partOfDay == null
-                      ? 'Select Part of Day'
-                      : 'Part of Day: ${partOfDayText(_partOfDay!)}'),
-                  trailing: const Icon(Icons.wb_sunny),
-                  onTap: _selectPartOfDay,
+                  validator: (value) {
+                    if (_taskType == TaskType.Routine && value == null) {
+                      return 'Please select a frequency';
+                    }
+                    return null;
+                  },
                 ),
               const SizedBox(height: 10),
-              // Notification and Alarm Options
-              SwitchListTile(
-                title: const Text('Enable Notification'),
-                value: _wantsNotification,
-                onChanged: (bool value) {
-                  setState(() {
-                    _wantsNotification = value;
-                  });
-                },
-              ),
-              if (_wantsNotification && _taskType == TaskType.Task)
+              // Scheduled Time or Part of Day
+              if (_taskType == TaskType.Task)
+                ListTile(
+                  title: Text(_scheduledTime != null
+                      ? 'Scheduled Time: ${_scheduledTime!.format(context)}'
+                      : 'No Scheduled Time'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.access_time),
+                    onPressed: () async {
+                      TimeOfDay? picked = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          _scheduledTime = picked;
+                        });
+                      }
+                    },
+                  ),
+                )
+              else if (_taskType == TaskType.Routine)
+                _scheduledTime == null
+                    ? DropdownButtonFormField<PartOfDay>(
+                        value: _partOfDay,
+                        decoration:
+                            const InputDecoration(labelText: 'Part of Day'),
+                        items: PartOfDay.values.map((PartOfDay part) {
+                          return DropdownMenuItem<PartOfDay>(
+                            value: part,
+                            child: Text(partOfDayNames[part]!),
+                          );
+                        }).toList(),
+                        onChanged: (PartOfDay? newValue) {
+                          setState(() {
+                            _partOfDay = newValue;
+                          });
+                        },
+                        validator: (value) {
+                          if (_taskType == TaskType.Routine && value == null) {
+                            return 'Please select a part of day or provide a time';
+                          }
+                          return null;
+                        },
+                      )
+                    : ListTile(
+                        title: Text(
+                            'Scheduled Time: ${_scheduledTime!.format(context)}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.access_time),
+                          onPressed: () async {
+                            TimeOfDay? picked = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.now(),
+                            );
+                            if (picked != null) {
+                              setState(() {
+                                _scheduledTime = picked;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+              const SizedBox(height: 10),
+              // Alarm (only if Task and time-based)
+              if (_taskType == TaskType.Task && _scheduledTime != null)
                 SwitchListTile(
-                  title: const Text('Enable Alarm'),
+                  title: const Text('Alarm'),
                   value: _hasAlarm,
                   onChanged: (bool value) {
                     setState(() {
@@ -373,97 +291,106 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     });
                   },
                 ),
+              // Notification (always enabled)
+              SwitchListTile(
+                title: const Text('Enable Notifications'),
+                value: true, // Always true as per requirements
+                onChanged: null, // Disabled switch
+              ),
               const SizedBox(height: 10),
-              // Priority Dropdown
+              // Priority
               DropdownButtonFormField<TaskPriority>(
                 value: _priority,
                 decoration: const InputDecoration(labelText: 'Priority'),
                 items: TaskPriority.values.map((TaskPriority priority) {
                   return DropdownMenuItem<TaskPriority>(
                     value: priority,
-                    child: Text(priorityText(priority)),
+                    child: Text(priorityNames[priority]!),
                   );
                 }).toList(),
                 onChanged: (TaskPriority? newValue) {
-                  setState(() {
-                    _priority = newValue ?? TaskPriority.Regular;
-                  });
-                },
-              ),
-              const SizedBox(height: 10),
-              // Subtasks List
-              const Text(
-                'Subtasks',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              _subtasks.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text('No subtasks added.'),
-                    )
-                  : SubtaskList(
-                      subtasks: _subtasks,
-                      onToggle: (Subtask subtask) {
-                        setState(() {
-                          subtask.isCompleted = !subtask.isCompleted;
-                        });
-                      },
-                    ),
-              ElevatedButton(
-                onPressed: () async {
-                  final String? newSubtaskTitle =
-                      await _showAddSubtaskDialog(context);
-                  if (newSubtaskTitle != null && newSubtaskTitle.isNotEmpty) {
+                  if (newValue != null) {
                     setState(() {
-                      _subtasks.add(Subtask(
-                          id: const Uuid().v4(), title: newSubtaskTitle));
+                      _priority = newValue;
                     });
                   }
                 },
-                child: const Text('Add Subtask'),
+              ),
+              const SizedBox(height: 10),
+              // Folder Selection
+              DropdownButtonFormField<String>(
+                value: _selectedFolderId,
+                decoration: const InputDecoration(labelText: 'Folder'),
+                items: folderProvider.folders
+                    .map<DropdownMenuItem<String>>((Folder folder) {
+                  return DropdownMenuItem<String>(
+                    value: folder.id,
+                    child: Text(folder.name),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedFolderId = newValue;
+                  });
+                },
+                validator: (value) => (value == null || value.isEmpty)
+                    ? 'Please select a folder'
+                    : null,
+              ),
+              const SizedBox(height: 10),
+              // Subtasks
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Subtasks',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  ..._subtasks.asMap().entries.map((entry) {
+                    int index = entry.key;
+                    Subtask subtask = entry.value;
+                    return ListTile(
+                      leading: Checkbox(
+                        value: subtask.isCompleted,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            subtask.isCompleted = value ?? false;
+                          });
+                        },
+                      ),
+                      title: TextFormField(
+                        initialValue: subtask.title,
+                        decoration: const InputDecoration(
+                          hintText: 'Subtask Title',
+                        ),
+                        onChanged: (value) {
+                          subtask.title = value;
+                        },
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () {
+                          _removeSubtask(index);
+                        },
+                      ),
+                    );
+                  }).toList(),
+                  TextButton.icon(
+                    onPressed: _addSubtask,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Subtask'),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
-              // Submit Button
               ElevatedButton(
                 onPressed: _submit,
-                child: Text(isEditing ? 'Update Task' : 'Create Task'),
+                child: const Text('Save Task'),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Future<String?> _showAddSubtaskDialog(BuildContext context) async {
-    String subtaskTitle = '';
-    return showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Add Subtask'),
-          content: TextField(
-            onChanged: (value) {
-              subtaskTitle = value;
-            },
-            decoration: const InputDecoration(hintText: 'Subtask Title'),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cancel
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(subtaskTitle); // Save
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
     );
   }
 }
