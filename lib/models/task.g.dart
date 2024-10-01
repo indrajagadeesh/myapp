@@ -25,14 +25,13 @@ class TaskAdapter extends TypeAdapter<Task> {
       hasAlarm: fields[5] as bool,
       priority: fields[6] as TaskPriority,
       subtasks: (fields[7] as List).cast<Subtask>(),
-      timeSpent: fields[8] as Duration,
       folderId: fields[9] as String?,
       isCompleted: fields[10] as bool,
       completedDate: fields[11] as DateTime?,
       isRepetitive: fields[12] as bool,
       frequency: fields[13] as Frequency,
       selectedWeekdays: (fields[14] as List?)?.cast<Weekday>(),
-    );
+    )..timeSpentMicroseconds = fields[8] as int;
   }
 
   @override
@@ -56,7 +55,7 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(7)
       ..write(obj.subtasks)
       ..writeByte(8)
-      ..write(obj.timeSpent)
+      ..write(obj.timeSpentMicroseconds)
       ..writeByte(9)
       ..write(obj.folderId)
       ..writeByte(10)

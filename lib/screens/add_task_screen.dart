@@ -29,6 +29,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   TaskPriority _priority = TaskPriority.Regular;
   List<Subtask> _subtasks = [];
 
+  // New fields for frequency and weekdays
+  bool _isRepetitive = false;
+  Frequency _frequency = Frequency.Daily;
+  List<Weekday> _selectedWeekdays = [];
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +49,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         _hasAlarm = task.hasAlarm;
         _priority = task.priority;
         _subtasks = List.from(task.subtasks);
+        _isRepetitive = task.isRepetitive;
+        _frequency = task.frequency;
+        _selectedWeekdays = task.selectedWeekdays ?? [];
       }
     }
   }
@@ -63,6 +71,19 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
+
+      // Validate that scheduledTime is in the future if hasAlarm is true
+      if (_hasAlarm && _scheduledTime != null) {
+        if (_scheduledTime!.isBefore(DateTime.now())) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Scheduled time must be in the future.'),
+            ),
+          );
+          return;
+        }
+      }
+
       final taskProvider = Provider.of<TaskProvider>(context, listen: false);
 
       if (widget.taskId != null) {
@@ -76,6 +97,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           task.hasAlarm = _hasAlarm;
           task.priority = _priority;
           task.subtasks = _subtasks;
+          task.isRepetitive = _isRepetitive;
+          task.frequency = _frequency;
+          task.selectedWeekdays = _selectedWeekdays;
           taskProvider.updateTask(task);
         }
       } else {
@@ -89,10 +113,90 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           hasAlarm: _hasAlarm,
           priority: _priority,
           subtasks: _subtasks,
+          isRepetitive: _isRepetitive,
+          frequency: _frequency,
+          selectedWeekdays: _selectedWeekdays,
         );
         taskProvider.addTask(newTask);
       }
       Navigator.pop(context);
+    }
+  }
+
+  void _showWeekdaySelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        List<Weekday> weekdays = Weekday.values;
+        return AlertDialog(
+          title: const Text('Select Days'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: weekdays.map((weekday) {
+                return CheckboxListTile(
+                  title: Text(weekdayText(weekday)),
+                  value: _selectedWeekdays.contains(weekday),
+                  onChanged: (bool? value) {
+                    setState(() {
+                      if (value == true) {
+                        _selectedWeekdays.add(weekday);
+                      } else {
+                        _selectedWeekdays.remove(weekday);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Done'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _pickScheduledTime() async {
+    final DateTime now = DateTime.now();
+    final DateTime initialDate = _scheduledTime ?? now;
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isBefore(now) ? now : initialDate,
+      firstDate: now,
+      lastDate: DateTime(2100),
+    );
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: _scheduledTime != null
+            ? TimeOfDay.fromDateTime(_scheduledTime!)
+            : TimeOfDay.now(),
+      );
+      if (pickedTime != null) {
+        final DateTime pickedDateTime = DateTime(
+          pickedDate.year,
+          pickedDate.month,
+          pickedDate.day,
+          pickedTime.hour,
+          pickedTime.minute,
+        );
+        if (pickedDateTime.isBefore(now)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Scheduled time must be in the future.'),
+            ),
+          );
+          return;
+        }
+        setState(() {
+          _scheduledTime = pickedDateTime;
+          _hasAlarm = true;
+        });
+      }
     }
   }
 
@@ -102,12 +206,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? 'Edit Task' : 'Add Task'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _submit,
-          ),
-        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -152,40 +250,57 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 },
               ),
               const SizedBox(height: 10),
+              // Repetitive Task Switch
+              SwitchListTile(
+                title: const Text('Is Repetitive'),
+                value: _isRepetitive,
+                onChanged: (bool value) {
+                  setState(() {
+                    _isRepetitive = value;
+                  });
+                },
+              ),
+              if (_isRepetitive) ...[
+                // Frequency Dropdown
+                DropdownButtonFormField<Frequency>(
+                  value: _frequency,
+                  decoration: const InputDecoration(labelText: 'Frequency'),
+                  items: Frequency.values.map((Frequency freq) {
+                    return DropdownMenuItem<Frequency>(
+                      value: freq,
+                      child: Text(frequencyText(freq)),
+                    );
+                  }).toList(),
+                  onChanged: (Frequency? newValue) {
+                    setState(() {
+                      _frequency = newValue ?? Frequency.Daily;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                // Weekday Selection
+                ElevatedButton(
+                  onPressed: _showWeekdaySelectionDialog,
+                  child: const Text('Select Days'),
+                ),
+                if (_selectedWeekdays.isNotEmpty)
+                  Wrap(
+                    spacing: 8.0,
+                    children: _selectedWeekdays.map((weekday) {
+                      return Chip(
+                        label: Text(weekdayText(weekday)),
+                      );
+                    }).toList(),
+                  ),
+                const SizedBox(height: 10),
+              ],
               // Scheduled Time Picker
               ListTile(
                 title: Text(_scheduledTime == null
                     ? 'No Scheduled Time'
                     : 'Scheduled Time: ${_scheduledTime!.toLocal()}'),
                 trailing: const Icon(Icons.calendar_today),
-                onTap: () async {
-                  final DateTime? pickedDate = await showDatePicker(
-                    context: context,
-                    initialDate: _scheduledTime ?? DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2100),
-                  );
-                  if (pickedDate != null) {
-                    final TimeOfDay? pickedTime = await showTimePicker(
-                      context: context,
-                      initialTime: _scheduledTime != null
-                          ? TimeOfDay.fromDateTime(_scheduledTime!)
-                          : TimeOfDay.now(),
-                    );
-                    if (pickedTime != null) {
-                      setState(() {
-                        _scheduledTime = DateTime(
-                          pickedDate.year,
-                          pickedDate.month,
-                          pickedDate.day,
-                          pickedTime.hour,
-                          pickedTime.minute,
-                        );
-                        _hasAlarm = true;
-                      });
-                    }
-                  }
-                },
+                onTap: _pickScheduledTime,
               ),
               const SizedBox(height: 10),
               // Priority Dropdown
@@ -235,6 +350,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   }
                 },
                 child: const Text('Add Subtask'),
+              ),
+              const SizedBox(height: 20),
+              // Submit Button
+              ElevatedButton(
+                onPressed: _submit,
+                child: Text(isEditing ? 'Update Task' : 'Create Task'),
               ),
             ],
           ),

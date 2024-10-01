@@ -19,40 +19,54 @@ import 'utils/theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Hive.initFlutter();
+  try {
+    await Hive.initFlutter();
 
-  // Register TypeAdapters
-  if (!Hive.isAdapterRegistered(TaskTypeAdapter().typeId)) {
-    Hive.registerAdapter(TaskTypeAdapter());
-  }
-  if (!Hive.isAdapterRegistered(TaskPriorityAdapter().typeId)) {
-    Hive.registerAdapter(TaskPriorityAdapter());
-  }
-  if (!Hive.isAdapterRegistered(TaskAdapter().typeId)) {
-    Hive.registerAdapter(TaskAdapter());
-  }
-  if (!Hive.isAdapterRegistered(FolderAdapter().typeId)) {
-    Hive.registerAdapter(FolderAdapter());
-  }
-  if (!Hive.isAdapterRegistered(SubtaskAdapter().typeId)) {
-    Hive.registerAdapter(SubtaskAdapter());
-  }
-  if (!Hive.isAdapterRegistered(FrequencyAdapter().typeId)) {
-    Hive.registerAdapter(FrequencyAdapter());
-  }
-  if (!Hive.isAdapterRegistered(WeekdayAdapter().typeId)) {
-    Hive.registerAdapter(WeekdayAdapter());
-  }
+    // Register TypeAdapters
+    if (!Hive.isAdapterRegistered(TaskTypeAdapter().typeId)) {
+      Hive.registerAdapter(TaskTypeAdapter());
+    }
+    if (!Hive.isAdapterRegistered(TaskPriorityAdapter().typeId)) {
+      Hive.registerAdapter(TaskPriorityAdapter());
+    }
+    if (!Hive.isAdapterRegistered(TaskAdapter().typeId)) {
+      Hive.registerAdapter(TaskAdapter());
+    }
+    if (!Hive.isAdapterRegistered(FolderAdapter().typeId)) {
+      Hive.registerAdapter(FolderAdapter());
+    }
+    if (!Hive.isAdapterRegistered(SubtaskAdapter().typeId)) {
+      Hive.registerAdapter(SubtaskAdapter());
+    }
+    if (!Hive.isAdapterRegistered(FrequencyAdapter().typeId)) {
+      Hive.registerAdapter(FrequencyAdapter());
+    }
+    if (!Hive.isAdapterRegistered(WeekdayAdapter().typeId)) {
+      Hive.registerAdapter(WeekdayAdapter());
+    }
 
-  // Initialize Notifications
-  await NotificationService.initialize();
+    // Initialize Notifications
+    await NotificationService.initialize();
 
-  // Open Hive Boxes
-  await Hive.openBox<Task>('tasks');
-  await Hive.openBox<Folder>('folders');
-  await Hive.openBox<Subtask>('subtasks');
+    // Open Hive Boxes
+    await Hive.openBox<Task>('tasks');
+    await Hive.openBox<Folder>('folders');
+    await Hive.openBox<Subtask>('subtasks');
 
-  runApp(MyApp());
+    runApp(const MyApp());
+  } catch (e, stackTrace) {
+    // Print the error to the console
+    print('Error during initialization: $e');
+    print(stackTrace);
+    // Optionally, you can show a simple error screen
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text('An error occurred during initialization.\n$e'),
+        ),
+      ),
+    ));
+  }
 }
 
 class MyApp extends StatelessWidget {

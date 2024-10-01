@@ -17,19 +17,43 @@ class HomeScreen extends StatelessWidget {
       );
     } else {
       return Column(
-        children: tasks.map((task) {
-          return ListTile(
-            title: Text(task.title),
-            subtitle: Text(priorityText(task.priority)),
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                '/task-detail',
-                arguments: {'taskId': task.id},
-              );
-            },
-          );
-        }).toList(),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...tasks.map((task) {
+            return Card(
+              elevation: 2,
+              margin:
+                  const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+              child: ListTile(
+                leading: Icon(
+                  task.isCompleted
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                  color: task.isCompleted ? Colors.green : Colors.grey,
+                ),
+                title: Text(task.title),
+                subtitle: Text(
+                    '${priorityText(task.priority)} • ${taskTypeText(task.taskType)}'),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  Navigator.pushNamed(
+                    context,
+                    '/task-detail',
+                    arguments: {'taskId': task.id},
+                  );
+                },
+              ),
+            );
+          }).toList(),
+        ],
       );
     }
   }
@@ -58,27 +82,15 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView(
-        children: [
-          // Display Tasks
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text(
-              'Tasks',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          _buildTaskList(context, tasks, 'tasks'),
-          // Display Routines
-          const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text(
-              'Routines',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ),
-          _buildTaskList(context, routines, 'routines'),
-        ],
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            _buildTaskList(context, tasks, 'Tasks'),
+            const SizedBox(height: 16),
+            _buildTaskList(context, routines, 'Routines'),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {

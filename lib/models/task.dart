@@ -31,8 +31,9 @@ class Task extends HiveObject {
   @HiveField(7)
   List<Subtask> subtasks;
 
+  // Changed from Duration to int (microseconds)
   @HiveField(8)
-  Duration timeSpent;
+  int timeSpentMicroseconds;
 
   @HiveField(9)
   String? folderId;
@@ -62,14 +63,21 @@ class Task extends HiveObject {
     this.hasAlarm = false,
     this.priority = TaskPriority.Regular,
     this.subtasks = const [],
-    this.timeSpent = Duration.zero,
+    Duration timeSpent = Duration.zero,
     this.folderId,
     this.isCompleted = false,
     this.completedDate,
     this.isRepetitive = false,
     this.frequency = Frequency.Daily,
     this.selectedWeekdays,
-  });
+  }) : timeSpentMicroseconds = timeSpent.inMicroseconds;
+
+  // Getter and setter for timeSpent as Duration
+  Duration get timeSpent => Duration(microseconds: timeSpentMicroseconds);
+
+  set timeSpent(Duration value) {
+    timeSpentMicroseconds = value.inMicroseconds;
+  }
 }
 
 @HiveType(typeId: 0)
