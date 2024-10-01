@@ -27,7 +27,7 @@ void main() async {
 
   await Hive.initFlutter();
 
-  // Register TypeAdapters
+  // Register TypeAdapters with unique typeIds
   Hive.registerAdapter(TaskTypeAdapter());
   Hive.registerAdapter(TaskPriorityAdapter());
   Hive.registerAdapter(FrequencyAdapter());
@@ -78,24 +78,22 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer<UserSettingsProvider>(
         builder: (context, userSettingsProvider, child) {
-          // If user settings are not set, navigate to Initial Setup
-          if (userSettingsProvider.userSettings == null ||
-              userSettingsProvider.userSettings!.name.isEmpty) {
-            return MaterialApp(
-              title: 'TaskFlow',
-              theme: appTheme,
-              home: const InitialSetupScreen(),
-              onGenerateRoute: (settings) {
-                // Define routes if needed
-                return null;
-              },
-            );
-          }
-
           return MaterialApp(
             title: 'TaskFlow',
             theme: appTheme,
-            home: const WelcomeScreen(),
+            initialRoute: userSettingsProvider.userSettings == null ||
+                    userSettingsProvider.userSettings!.name.isEmpty
+                ? '/initial-setup'
+                : '/',
+            routes: {
+              '/': (context) => const WelcomeScreen(),
+              '/initial-setup': (context) => const InitialSetupScreen(),
+              '/home': (context) => const HomeScreen(),
+              '/folders': (context) => const FolderScreen(),
+              '/reports': (context) => const ReportScreen(),
+              // Remove '/task-detail' from routes
+              // '/task-detail': (context) => TaskDetailScreen(), // Removed
+            },
             onGenerateRoute: (settings) {
               if (settings.name == '/add-task') {
                 final args = settings.arguments as Map<String, dynamic>?;
@@ -105,27 +103,26 @@ class MyApp extends StatelessWidget {
                 );
               }
               if (settings.name == '/task-detail') {
-                final args = settings.arguments as Map<String, dynamic>;
+                final args = settings.arguments as Map<String, dynamic>?;
+                if (args == null || !args.containsKey('taskId')) {
+                  return MaterialPageRoute(
+                    builder: (context) => const Scaffold(
+                      body: Center(child: Text('No Task ID provided')),
+                    ),
+                  );
+                }
                 final String taskId = args['taskId'];
                 return MaterialPageRoute(
                   builder: (context) => TaskDetailScreen(taskId: taskId),
                 );
               }
-              switch (settings.name) {
-                case '/home':
-                  return MaterialPageRoute(
-                      builder: (context) => const HomeScreen());
-                case '/folders':
-                  return MaterialPageRoute(
-                      builder: (context) => const FolderScreen());
-                case '/reports':
-                  return MaterialPageRoute(
-                      builder: (context) => const ReportScreen());
-                default:
-                  return MaterialPageRoute(
-                      builder: (context) => const HomeScreen());
-              }
+              return null; // Let `onUnknownRoute` handle all other routes
             },
+            onUnknownRoute: (settings) => MaterialPageRoute(
+              builder: (context) => const Scaffold(
+                body: Center(child: Text('Route not found')),
+              ),
+            ),
           );
         },
       ),
