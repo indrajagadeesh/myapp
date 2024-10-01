@@ -3,6 +3,7 @@
 import 'package:hive/hive.dart';
 import 'subtask.dart';
 import 'enums.dart';
+import 'package:flutter/material.dart';
 
 part 'task.g.dart';
 
@@ -27,7 +28,7 @@ class Task extends HiveObject {
   DateTime? completedDate;
 
   @HiveField(6)
-  DateTime? scheduledTime;
+  DateTime? scheduledTime; // For time-based tasks
 
   @HiveField(7)
   bool hasAlarm;
@@ -48,7 +49,7 @@ class Task extends HiveObject {
   Frequency? frequency;
 
   @HiveField(13)
-  PartOfDay? partOfDay;
+  PartOfDay? partOfDay; // For part-of-day based routines
 
   @HiveField(14)
   int timeSpentMicroseconds;
@@ -78,11 +79,6 @@ class Task extends HiveObject {
     timeSpentMicroseconds = value.inMicroseconds;
   }
 
-  Duration get totalTimeSpent {
-    Duration subtaskTime = Duration.zero;
-    for (var subtask in subtasks) {
-      subtaskTime += subtask.timeSpent;
-    }
-    return timeSpent + subtaskTime;
-  }
+  // Determine if the routine uses part of the day
+  bool get usesPartOfDay => partOfDay != null;
 }

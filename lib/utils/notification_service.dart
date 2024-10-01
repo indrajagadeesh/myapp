@@ -1,76 +1,78 @@
 // lib/utils/notification_service.dart
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import '../models/task.dart';
-import 'package:timezone/timezone.dart' as tz;
-import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:flutter/material.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
-    tz.initializeTimeZones();
-
-    // Android initialization settings
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    // iOS initialization settings
-    const DarwinInitializationSettings initializationSettingsDarwin =
+    const DarwinInitializationSettings initializationSettingsIOS =
         DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
+      onDidReceiveLocalNotification: onDidReceiveLocalNotification,
     );
 
-    // Initialization settings for both platforms
     const InitializationSettings initializationSettings =
         InitializationSettings(
       android: initializationSettingsAndroid,
-      iOS: initializationSettingsDarwin,
-      macOS: initializationSettingsDarwin,
+      iOS: initializationSettingsIOS,
     );
 
-    await _notificationsPlugin.initialize(initializationSettings);
-  }
-
-  static Future<void> scheduleNotification(Task task) async {
-    if (task.scheduledTime == null) return;
-
-    // Ensure the scheduled time is in the future
-    final tz.TZDateTime scheduledDate =
-        tz.TZDateTime.from(task.scheduledTime!, tz.local);
-
-    if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) {
-      // Do not schedule the notification if the time is in the past
-      print('Cannot schedule notification for a past date/time.');
-      return;
-    }
-
-    await _notificationsPlugin.zonedSchedule(
-      task.key as int, // Unique ID for the notification
-      task.title,
-      task.description,
-      scheduledDate,
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          'task_channel',
-          'Task Notifications',
-          channelDescription: 'Notifications for your tasks',
-          importance: Importance.max,
-          priority: Priority.high,
-        ),
-        iOS: DarwinNotificationDetails(),
-        macOS: DarwinNotificationDetails(),
-      ),
-      androidAllowWhileIdle: true,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+    await _notificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: onSelectNotification,
     );
   }
 
-  static Future<void> cancelNotification(int id) async {
-    await _notificationsPlugin.cancel(id);
+  static Future onSelectNotification(NotificationResponse response) async {
+    // Handle notification tapped logic here
+    // You may need to use a navigator key to navigate to specific screens
+    // Example:
+    // Navigator.pushNamed(context, '/task-detail', arguments: {'taskId': response.payload});
+  }
+
+  static Future onDidReceiveLocalNotification(
+      int id, String? title, String? body, String? payload) async {
+    // Handle iOS-specific notification behavior here
+  }
+
+  static Future<void> showNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'taskflow_channel', // channel id
+      'TaskFlow Notifications', // channel name
+      channelDescription: 'Notifications for TaskFlow app',
+      importance: Importance.max,
+      priority: Priority.high,
+      ticker: 'ticker',
+    );
+
+    const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+        DarwinNotificationDetails();
+
+    const NotificationDetails platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+      iOS: iOSPlatformChannelSpecifics,
+    );
+
+    await _notificationsPlugin.show(
+      id,
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: payload,
+    );
   }
 }

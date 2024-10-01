@@ -2,21 +2,18 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/task.dart';
-import '../models/folder.dart';
-import '../models/enums.dart';
-import '../models/subtask.dart';
 import '../providers/task_provider.dart';
 import '../providers/folder_provider.dart';
-import '../widgets/frequency_selector.dart';
-import '../widgets/priority_indicator.dart';
-import '../utils/constants.dart';
+import '../models/task.dart';
+import '../models/subtask.dart';
+import '../models/enums.dart';
 import 'package:uuid/uuid.dart';
+import 'package:collection/collection.dart'; // For firstWhereOrNull
 
 class AddTaskScreen extends StatefulWidget {
   final String? taskId;
 
-  const AddTaskScreen({this.taskId, Key? key}) : super(key: key);
+  const AddTaskScreen({Key? key, this.taskId}) : super(key: key);
 
   @override
   _AddTaskScreenState createState() => _AddTaskScreenState();
@@ -27,109 +24,46 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   String _title = '';
   String _description = '';
   TaskType _taskType = TaskType.Task;
-  TimeOfDay? _scheduledTime;
-  bool _hasAlarm = false;
-  TaskPriority _priority = TaskPriority.Regular;
-  List<Subtask> _subtasks = [];
-  String? _selectedFolderId;
   Frequency? _frequency;
   PartOfDay? _partOfDay;
+  bool _hasAlarm = false;
+  TaskPriority _priority = TaskPriority.Regular;
+  List<String> _subtasks = [];
+  String? _folderId;
+  DateTime? _selectedDate; // For date-based tasks
+  TimeOfDay? _selectedTime; // For time-based tasks
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initialize();
-    });
-  }
-
-  void _initialize() {
-    final folderProvider = Provider.of<FolderProvider>(context, listen: false);
-    _selectedFolderId = folderProvider.getDefaultFolderId();
-
     if (widget.taskId != null) {
+      // If editing an existing task, populate fields
       final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-      final existingTask = taskProvider.tasks.firstWhere(
-        (task) => task.id == widget.taskId,
-        orElse: () => Task(
-          id: '',
-          title: '',
-          taskType: TaskType.Task,
-          folderId: _selectedFolderId!,
-        ),
-      );
-      if (existingTask.id.isNotEmpty) {
-        setState(() {
-          _title = existingTask.title;
-          _description = existingTask.description;
-          _taskType = existingTask.taskType;
-          _scheduledTime = existingTask.scheduledTime != null
-              ? TimeOfDay.fromDateTime(existingTask.scheduledTime!)
-              : null;
-          _hasAlarm = existingTask.hasAlarm;
-          _priority = existingTask.priority;
-          _subtasks = List<Subtask>.from(existingTask.subtasks);
-          _selectedFolderId = existingTask.folderId;
-          _frequency = existingTask.frequency;
-          _partOfDay = existingTask.partOfDay;
-        });
+      final Task? task =
+          taskProvider.tasks.firstWhereOrNull((t) => t.id == widget.taskId);
+      if (task != null) {
+        _title = task.title;
+        _description = task.description;
+        _taskType = task.taskType;
+        _frequency = task.frequency;
+        _partOfDay = task.partOfDay;
+        _hasAlarm = task.hasAlarm;
+        _priority = task.priority;
+        _subtasks = task.subtasks.map((sub) => sub.title).toList();
+        _folderId = task.folderId;
+        _selectedDate = task.scheduledTime;
+        _selectedTime = task.scheduledTime != null
+            ? TimeOfDay(
+                hour: task.scheduledTime!.hour,
+                minute: task.scheduledTime!.minute)
+            : null;
       }
-    }
-  }
-
-  void _submit() {
-    if (_formKey.currentState?.validate() ?? false) {
-      _formKey.currentState?.save();
-      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
-
-      if (_taskType == TaskType.Routine &&
-          _scheduledTime == null &&
-          _partOfDay == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Please provide either a time or select a part of day.'),
-          ),
-        );
-        return;
-      }
-
-      Task task = Task(
-        id: widget.taskId ?? const Uuid().v4(),
-        title: _title,
-        description: _description,
-        taskType: _taskType,
-        scheduledTime: _scheduledTime != null
-            ? DateTime(
-                DateTime.now().year,
-                DateTime.now().month,
-                DateTime.now().day,
-                _scheduledTime!.hour,
-                _scheduledTime!.minute,
-              )
-            : null,
-        hasAlarm: _hasAlarm,
-        priority: _priority,
-        subtasks: _subtasks,
-        folderId: _selectedFolderId!,
-        isRepetitive: _taskType == TaskType.Routine,
-        frequency: _taskType == TaskType.Routine ? _frequency : null,
-        partOfDay: _taskType == TaskType.Routine ? _partOfDay : null,
-      );
-
-      if (widget.taskId != null) {
-        taskProvider.updateTask(task);
-      } else {
-        taskProvider.addTask(task);
-      }
-
-      Navigator.pop(context);
     }
   }
 
   void _addSubtask() {
     setState(() {
-      _subtasks.add(Subtask(id: const Uuid().v4(), title: ''));
+      _subtasks.add('');
     });
   }
 
@@ -139,9 +73,125 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     });
   }
 
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2101),
+    );
+    if (picked != null && picked != _selectedDate)
+      setState(() {
+        _selectedDate = picked;
+      });
+  }
+
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? TimeOfDay.now(),
+    );
+    if (picked != null && picked != _selectedTime)
+      setState(() {
+        _selectedTime = picked;
+      });
+  }
+
+  Future<void> _submit() async {
+    if (_formKey.currentState?.validate() ?? false) {
+      _formKey.currentState?.save();
+
+      final taskProvider = Provider.of<TaskProvider>(context, listen: false);
+      final folderProvider =
+          Provider.of<FolderProvider>(context, listen: false);
+
+      // Ensure folder is selected
+      if (_folderId == null) {
+        // Assign to default folder
+        _folderId = folderProvider.getDefaultFolderId();
+      }
+
+      // Create Subtasks
+      List<Subtask> subtaskObjects = _subtasks
+          .where((subtask) => subtask.trim().isNotEmpty)
+          .map((subtask) => Subtask(
+                id: const Uuid().v4(),
+                title: subtask.trim(),
+              ))
+          .toList();
+
+      // Create or Update Task
+      if (widget.taskId != null) {
+        // Update existing task
+        Task? existingTask =
+            taskProvider.tasks.firstWhereOrNull((t) => t.id == widget.taskId);
+        if (existingTask != null) {
+          existingTask.title = _title;
+          existingTask.description = _description;
+          existingTask.taskType = _taskType;
+          existingTask.frequency = _frequency;
+          existingTask.partOfDay = _partOfDay;
+          existingTask.hasAlarm = _hasAlarm;
+          existingTask.priority = _priority;
+          existingTask.subtasks = subtaskObjects;
+          existingTask.folderId = _folderId!;
+          existingTask.scheduledTime =
+              _taskType == TaskType.Task && _selectedDate != null
+                  ? DateTime(
+                      _selectedDate!.year,
+                      _selectedDate!.month,
+                      _selectedDate!.day,
+                      _selectedTime?.hour ?? 0,
+                      _selectedTime?.minute ?? 0,
+                    )
+                  : null;
+          taskProvider.updateTask(existingTask);
+        }
+      } else {
+        // Create new task
+        Task newTask = Task(
+          id: const Uuid().v4(),
+          title: _title,
+          description: _description,
+          taskType: _taskType,
+          hasAlarm: _hasAlarm,
+          priority: _priority,
+          subtasks: subtaskObjects,
+          folderId: _folderId!,
+          isRepetitive: _taskType == TaskType.Routine,
+          frequency: _frequency,
+          partOfDay: _partOfDay,
+          scheduledTime: _taskType == TaskType.Task && _selectedDate != null
+              ? DateTime(
+                  _selectedDate!.year,
+                  _selectedDate!.month,
+                  _selectedDate!.day,
+                  _selectedTime?.hour ?? 0,
+                  _selectedTime?.minute ?? 0,
+                )
+              : null,
+        );
+        taskProvider.addTask(newTask);
+      }
+
+      Navigator.pop(context);
+    }
+  }
+
+  bool _taskProviderUsesPartOfDay() {
+    return _partOfDay != null;
+  }
+
+  bool _enableStopwatch() {
+    // Determine if stopwatch should be enabled based on subtasks
+    return _subtasks.isNotEmpty;
+  }
+
   @override
   Widget build(BuildContext context) {
     final folderProvider = Provider.of<FolderProvider>(context);
+    final folders = folderProvider.folders;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.taskId != null ? 'Edit Task' : 'Add Task'),
@@ -152,7 +202,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           key: _formKey,
           child: ListView(
             children: [
-              // Title
+              // Task Title
               TextFormField(
                 initialValue: _title,
                 decoration: const InputDecoration(labelText: 'Title'),
@@ -162,10 +212,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 onSaved: (value) => _title = value!,
               ),
               const SizedBox(height: 10),
-              // Description
+              // Task Description
               TextFormField(
                 initialValue: _description,
                 decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 3,
                 onSaved: (value) => _description = value ?? '',
               ),
               const SizedBox(height: 10),
@@ -173,22 +224,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               DropdownButtonFormField<TaskType>(
                 value: _taskType,
                 decoration: const InputDecoration(labelText: 'Task Type'),
-                items: TaskType.values.map((TaskType type) {
-                  return DropdownMenuItem<TaskType>(
-                    value: type,
-                    child: Text(type.toString().split('.').last),
-                  );
-                }).toList(),
-                onChanged: (TaskType? newValue) {
-                  if (newValue != null) {
-                    setState(() {
-                      _taskType = newValue;
-                      if (_taskType != TaskType.Routine) {
-                        _frequency = null;
-                        _partOfDay = null;
-                      }
-                    });
-                  }
+                items: TaskType.values
+                    .map((type) => DropdownMenuItem(
+                          value: type,
+                          child: Text(type.toString().split('.').last),
+                        ))
+                    .toList(),
+                onChanged: (TaskType? newType) {
+                  setState(() {
+                    _taskType = newType!;
+                    if (_taskType == TaskType.Task) {
+                      _partOfDay = null;
+                    } else {
+                      _selectedDate = null;
+                      _selectedTime = null;
+                    }
+                  });
                 },
               ),
               const SizedBox(height: 10),
@@ -197,93 +248,91 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 DropdownButtonFormField<Frequency>(
                   value: _frequency,
                   decoration: const InputDecoration(labelText: 'Frequency'),
-                  items: Frequency.values.map((Frequency freq) {
-                    return DropdownMenuItem<Frequency>(
-                      value: freq,
-                      child: Text(frequencyNames[freq]!),
-                    );
-                  }).toList(),
-                  onChanged: (Frequency? newValue) {
-                    setState(() {
-                      _frequency = newValue;
-                    });
-                  },
+                  items: Frequency.values
+                      .map((freq) => DropdownMenuItem(
+                            value: freq,
+                            child: Text(freq.toString().split('.').last),
+                          ))
+                      .toList(),
                   validator: (value) {
-                    if (_taskType == TaskType.Routine && value == null) {
-                      return 'Please select a frequency';
+                    if (_taskType == TaskType.Routine &&
+                        value == null &&
+                        _partOfDay == null) {
+                      return 'Please select a frequency or part of the day';
                     }
                     return null;
                   },
+                  onChanged: (Frequency? newFreq) {
+                    setState(() {
+                      _frequency = newFreq;
+                      if (_frequency != null) {
+                        _partOfDay = null;
+                      }
+                    });
+                  },
                 ),
               const SizedBox(height: 10),
-              // Scheduled Time or Part of Day
-              if (_taskType == TaskType.Task)
+              // Part of Day (only for Routine without specific time)
+              if (_taskType == TaskType.Routine)
+                DropdownButtonFormField<PartOfDay>(
+                  value: _partOfDay,
+                  decoration: const InputDecoration(labelText: 'Part of Day'),
+                  items: PartOfDay.values
+                      .map((part) => DropdownMenuItem(
+                            value: part,
+                            child: Text(part.toString().split('.').last),
+                          ))
+                      .toList(),
+                  validator: (value) {
+                    if (_taskType == TaskType.Routine &&
+                        _frequency == null &&
+                        value == null) {
+                      return 'Please select a frequency or part of the day';
+                    }
+                    return null;
+                  },
+                  onChanged: (PartOfDay? newPart) {
+                    setState(() {
+                      _partOfDay = newPart;
+                      if (_partOfDay != null) {
+                        _frequency = null;
+                      }
+                    });
+                  },
+                ),
+              const SizedBox(height: 10),
+              // Date and Time Selection for Task
+              if (_taskType == TaskType.Task) ...[
+                // Date Picker
                 ListTile(
-                  title: Text(_scheduledTime != null
-                      ? 'Scheduled Time: ${_scheduledTime!.format(context)}'
-                      : 'No Scheduled Time'),
+                  title: const Text('Select Date'),
+                  subtitle: Text(_selectedDate != null
+                      ? "${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}"
+                      : 'No date selected'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.calendar_today),
+                    onPressed: () => _selectDate(context),
+                  ),
+                ),
+                // Time Picker
+                ListTile(
+                  title: const Text('Select Time'),
+                  subtitle: Text(_selectedTime != null
+                      ? _selectedTime!.format(context)
+                      : 'No time selected'),
                   trailing: IconButton(
                     icon: const Icon(Icons.access_time),
-                    onPressed: () async {
-                      TimeOfDay? picked = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.now(),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          _scheduledTime = picked;
-                        });
-                      }
-                    },
+                    onPressed: () => _selectTime(context),
                   ),
-                )
-              else if (_taskType == TaskType.Routine)
-                _scheduledTime == null
-                    ? DropdownButtonFormField<PartOfDay>(
-                        value: _partOfDay,
-                        decoration:
-                            const InputDecoration(labelText: 'Part of Day'),
-                        items: PartOfDay.values.map((PartOfDay part) {
-                          return DropdownMenuItem<PartOfDay>(
-                            value: part,
-                            child: Text(partOfDayNames[part]!),
-                          );
-                        }).toList(),
-                        onChanged: (PartOfDay? newValue) {
-                          setState(() {
-                            _partOfDay = newValue;
-                          });
-                        },
-                        validator: (value) {
-                          if (_taskType == TaskType.Routine && value == null) {
-                            return 'Please select a part of day or provide a time';
-                          }
-                          return null;
-                        },
-                      )
-                    : ListTile(
-                        title: Text(
-                            'Scheduled Time: ${_scheduledTime!.format(context)}'),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.access_time),
-                          onPressed: () async {
-                            TimeOfDay? picked = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (picked != null) {
-                              setState(() {
-                                _scheduledTime = picked;
-                              });
-                            }
-                          },
-                        ),
-                      ),
+                ),
+              ],
               const SizedBox(height: 10),
-              // Alarm (only if Task and time-based)
-              if (_taskType == TaskType.Task && _scheduledTime != null)
+              // Alarm (only if Task or Routine has specific time)
+              if (_taskType == TaskType.Task ||
+                  (_taskType == TaskType.Routine &&
+                      !_taskProviderUsesPartOfDay()))
                 SwitchListTile(
-                  title: const Text('Alarm'),
+                  title: const Text('Enable Alarm'),
                   value: _hasAlarm,
                   onChanged: (bool value) {
                     setState(() {
@@ -291,101 +340,94 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     });
                   },
                 ),
-              // Notification (always enabled)
-              SwitchListTile(
-                title: const Text('Enable Notifications'),
-                value: true, // Always true as per requirements
-                onChanged: null, // Disabled switch
-              ),
               const SizedBox(height: 10),
               // Priority
               DropdownButtonFormField<TaskPriority>(
                 value: _priority,
                 decoration: const InputDecoration(labelText: 'Priority'),
-                items: TaskPriority.values.map((TaskPriority priority) {
-                  return DropdownMenuItem<TaskPriority>(
-                    value: priority,
-                    child: Text(priorityNames[priority]!),
-                  );
-                }).toList(),
-                onChanged: (TaskPriority? newValue) {
-                  if (newValue != null) {
-                    setState(() {
-                      _priority = newValue;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 10),
-              // Folder Selection
-              DropdownButtonFormField<String>(
-                value: _selectedFolderId,
-                decoration: const InputDecoration(labelText: 'Folder'),
-                items: folderProvider.folders
-                    .map<DropdownMenuItem<String>>((Folder folder) {
-                  return DropdownMenuItem<String>(
-                    value: folder.id,
-                    child: Text(folder.name),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
+                items: TaskPriority.values
+                    .map((priority) => DropdownMenuItem(
+                          value: priority,
+                          child: Text(priority.toString().split('.').last),
+                        ))
+                    .toList(),
+                onChanged: (TaskPriority? newPriority) {
                   setState(() {
-                    _selectedFolderId = newValue;
+                    _priority = newPriority!;
                   });
                 },
-                validator: (value) => (value == null || value.isEmpty)
-                    ? 'Please select a folder'
-                    : null,
-              ),
-              const SizedBox(height: 10),
-              // Subtasks
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Subtasks',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  ..._subtasks.asMap().entries.map((entry) {
-                    int index = entry.key;
-                    Subtask subtask = entry.value;
-                    return ListTile(
-                      leading: Checkbox(
-                        value: subtask.isCompleted,
-                        onChanged: (bool? value) {
-                          setState(() {
-                            subtask.isCompleted = value ?? false;
-                          });
-                        },
-                      ),
-                      title: TextFormField(
-                        initialValue: subtask.title,
-                        decoration: const InputDecoration(
-                          hintText: 'Subtask Title',
-                        ),
-                        onChanged: (value) {
-                          subtask.title = value;
-                        },
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () {
-                          _removeSubtask(index);
-                        },
-                      ),
-                    );
-                  }).toList(),
-                  TextButton.icon(
-                    onPressed: _addSubtask,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Subtask'),
-                  ),
-                ],
               ),
               const SizedBox(height: 20),
+              // Folder Selection
+              DropdownButtonFormField<String>(
+                value: _folderId,
+                decoration: const InputDecoration(labelText: 'Folder'),
+                items: folders
+                    .map((folder) => DropdownMenuItem(
+                          value: folder.id,
+                          child: Text(folder.name),
+                        ))
+                    .toList(),
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Please select a folder'
+                    : null,
+                onChanged: (String? newFolderId) {
+                  setState(() {
+                    _folderId = newFolderId;
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              // Subtasks
+              Text(
+                'Subtasks',
+                style: Theme.of(context).textTheme.headlineSmall, // Updated
+              ),
+              const SizedBox(height: 10),
+              ..._subtasks.asMap().entries.map((entry) {
+                int index = entry.key;
+                String subtask = entry.value;
+                return Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        initialValue: subtask,
+                        decoration: InputDecoration(
+                          labelText: 'Subtask ${index + 1}',
+                        ),
+                        onChanged: (value) {
+                          _subtasks[index] = value;
+                        },
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle, color: Colors.red),
+                      onPressed: () => _removeSubtask(index),
+                    ),
+                  ],
+                );
+              }).toList(),
+              ElevatedButton(
+                onPressed: _addSubtask,
+                child: const Text('Add Subtask'),
+              ),
+              const SizedBox(height: 20),
+              // Stopwatch Toggle
+              SwitchListTile(
+                title: const Text('Enable Stopwatch'),
+                value: _enableStopwatch(),
+                onChanged: (bool value) {
+                  setState(() {
+                    // Implement logic to handle stopwatch enabling
+                    // This could involve additional fields or state management
+                  });
+                },
+              ),
+              const SizedBox(height: 20),
+              // Submit Button
               ElevatedButton(
                 onPressed: _submit,
-                child: const Text('Save Task'),
+                child: Text(widget.taskId != null ? 'Update Task' : 'Add Task'),
               ),
             ],
           ),
