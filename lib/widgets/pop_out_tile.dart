@@ -7,11 +7,12 @@ class PopOutTile extends StatelessWidget {
   final String title;
   final VoidCallback onTap;
 
-  PopOutTile({
+  const PopOutTile({
     required this.icon,
     required this.title,
     required this.onTap,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

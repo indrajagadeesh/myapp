@@ -7,7 +7,8 @@ class SubtaskList extends StatelessWidget {
   final List<Subtask> subtasks;
   final Function(Subtask) onToggle;
 
-  SubtaskList({required this.subtasks, required this.onToggle});
+  const SubtaskList({required this.subtasks, required this.onToggle, Key? key})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +18,9 @@ class SubtaskList extends StatelessWidget {
         return CheckboxListTile(
           value: subtask.isCompleted,
           onChanged: (bool? value) {
-            onToggle(subtask);
+            if (value != null) {
+              onToggle(subtask);
+            }
           },
           title: Text(subtask.title),
         );

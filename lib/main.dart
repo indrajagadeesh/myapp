@@ -21,7 +21,7 @@ void main() async {
 
   await Hive.initFlutter();
 
-  // Registering TypeAdapters only once
+  // Register TypeAdapters
   if (!Hive.isAdapterRegistered(TaskTypeAdapter().typeId)) {
     Hive.registerAdapter(TaskTypeAdapter());
   }
@@ -56,6 +56,8 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({Key? key}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -81,21 +83,26 @@ class MyApp extends StatelessWidget {
               },
             );
           }
+          if (settings.name == '/add-task') {
+            final args = settings.arguments as Map<String, dynamic>?;
+            final String? taskId = args != null ? args['taskId'] : null;
+            return MaterialPageRoute(
+              builder: (context) => AddTaskScreen(taskId: taskId),
+            );
+          }
           switch (settings.name) {
             case '/':
-              return MaterialPageRoute(builder: (context) => HomeScreen());
-            case '/add-task':
-              final args = settings.arguments as Map<String, dynamic>?;
-              final String? taskId = args != null ? args['taskId'] : null;
               return MaterialPageRoute(
-                builder: (context) => AddTaskScreen(taskId: taskId),
-              );
+                  builder: (context) => const HomeScreen());
             case '/folders':
-              return MaterialPageRoute(builder: (context) => FolderScreen());
+              return MaterialPageRoute(
+                  builder: (context) => const FolderScreen());
             case '/reports':
-              return MaterialPageRoute(builder: (context) => ReportScreen());
+              return MaterialPageRoute(
+                  builder: (context) => const ReportScreen());
             default:
-              return MaterialPageRoute(builder: (context) => HomeScreen());
+              return MaterialPageRoute(
+                  builder: (context) => const HomeScreen());
           }
         },
       ),

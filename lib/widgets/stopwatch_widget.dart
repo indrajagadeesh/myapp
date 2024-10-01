@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 class StopwatchWidget extends StatefulWidget {
+  const StopwatchWidget({Key? key}) : super(key: key);
+
   @override
   _StopwatchWidgetState createState() => _StopwatchWidgetState();
 }
@@ -14,9 +16,9 @@ class _StopwatchWidgetState extends State<StopwatchWidget> {
 
   void _startTimer() {
     if (_timer != null) return; // Prevent multiple timers
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
-        _elapsed += Duration(seconds: 1);
+        _elapsed += const Duration(seconds: 1);
       });
     });
   }
@@ -52,24 +54,24 @@ class _StopwatchWidgetState extends State<StopwatchWidget> {
       children: [
         Text(
           _formatDuration(_elapsed),
-          style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
               onPressed: _startTimer,
-              child: Text('Start'),
+              child: const Text('Start'),
             ),
-            SizedBox(width: 20),
+            const SizedBox(width: 20),
             ElevatedButton(
               onPressed: _stopTimer,
-              child: Text('Stop'),
+              child: const Text('Stop'),
             ),
-            SizedBox(width: 20),
+            const SizedBox(width: 20),
             ElevatedButton(
               onPressed: _resetTimer,
-              child: Text('Reset'),
+              child: const Text('Reset'),
             ),
           ],
         ),

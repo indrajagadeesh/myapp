@@ -7,6 +7,33 @@ import '../models/task.dart';
 import '../utils/constants.dart';
 
 class HomeScreen extends StatelessWidget {
+  const HomeScreen({Key? key}) : super(key: key);
+
+  Widget _buildTaskList(BuildContext context, List<Task> tasks, String title) {
+    if (tasks.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Text('No $title available.'),
+      );
+    } else {
+      return Column(
+        children: tasks.map((task) {
+          return ListTile(
+            title: Text(task.title),
+            subtitle: Text(priorityText(task.priority)),
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                '/task-detail',
+                arguments: {'taskId': task.id},
+              );
+            },
+          );
+        }).toList(),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
@@ -15,16 +42,16 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('TaskFlow'),
+        title: const Text('TaskFlow'),
         actions: [
           IconButton(
-            icon: Icon(Icons.folder),
+            icon: const Icon(Icons.folder),
             onPressed: () {
               Navigator.pushNamed(context, '/folders');
             },
           ),
           IconButton(
-            icon: Icon(Icons.bar_chart),
+            icon: const Icon(Icons.bar_chart),
             onPressed: () {
               Navigator.pushNamed(context, '/reports');
             },
@@ -34,62 +61,30 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         children: [
           // Display Tasks
-          Padding(
+          const Padding(
             padding: EdgeInsets.all(8.0),
             child: Text(
               'Tasks',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          if (tasks.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text('No tasks available.'),
-            )
-          else
-            ...tasks.map((task) => ListTile(
-                  title: Text(task.title),
-                  subtitle: Text(priorityText(task.priority)),
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      '/task-detail',
-                      arguments: {'taskId': task.id},
-                    );
-                  },
-                )),
+          _buildTaskList(context, tasks, 'tasks'),
           // Display Routines
-          Padding(
+          const Padding(
             padding: EdgeInsets.all(8.0),
             child: Text(
               'Routines',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          if (routines.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text('No routines available.'),
-            )
-          else
-            ...routines.map((routine) => ListTile(
-                  title: Text(routine.title),
-                  subtitle: Text(frequencyText(routine.frequency)),
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      '/task-detail',
-                      arguments: {'taskId': routine.id},
-                    );
-                  },
-                )),
+          _buildTaskList(context, routines, 'routines'),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.pushNamed(context, '/add-task');
         },
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
       ),
     );
   }

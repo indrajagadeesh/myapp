@@ -16,6 +16,16 @@ class FolderProvider extends ChangeNotifier {
   Future<void> _init() async {
     _folderBox = Hive.box<Folder>('folders');
     folders = _folderBox.values.toList();
+    // Ensure a default folder exists
+    if (!_folderBox.values.any((folder) => folder.isDefault)) {
+      final defaultFolder = Folder(
+        id: const Uuid().v4(),
+        name: 'Default',
+        isDefault: true,
+      );
+      _folderBox.add(defaultFolder);
+      folders = _folderBox.values.toList();
+    }
     notifyListeners();
   }
 
@@ -32,32 +42,25 @@ class FolderProvider extends ChangeNotifier {
   }
 
   void deleteFolder(String folderId) {
-    final folder = _folderBox.values.firstWhere((f) => f.id == folderId);
-    if (folder.isDefault) {
-      // Prevent deletion of default folder
-      return;
+    Folder? folder;
+    try {
+      folder = _folderBox.values.firstWhere((f) => f.id == folderId);
+    } catch (e) {
+      folder = null;
     }
-    folder.delete();
-    folders = _folderBox.values.toList();
-    notifyListeners();
+    if (folder != null && !folder.isDefault) {
+      folder.delete();
+      folders = _folderBox.values.toList();
+      notifyListeners();
+    }
   }
 
-  Folder getDefaultFolder() {
-    return _folderBox.values.firstWhere(
-      (folder) => folder.isDefault,
-      orElse: () {
-        // Create and return a default folder if it doesn't exist
-        final newFolder = Folder(
-          id: Uuid().v4(),
-          name: 'Default',
-          isDefault: true,
-        );
-        _folderBox.add(newFolder);
-        folders = _folderBox.values.toList();
-        notifyListeners();
-        return newFolder;
-      },
-    );
+  Folder? getDefaultFolder() {
+    try {
+      return _folderBox.values.firstWhere((folder) => folder.isDefault);
+    } catch (e) {
+      return null;
+    }
   }
 
   void setDefaultFolder(String folderId) {

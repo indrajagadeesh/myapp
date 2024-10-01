@@ -8,7 +8,9 @@ class FrequencySelector extends StatefulWidget {
   final Frequency frequency;
   final Function(Frequency) onFrequencyChanged;
 
-  FrequencySelector({required this.frequency, required this.onFrequencyChanged});
+  const FrequencySelector(
+      {required this.frequency, required this.onFrequencyChanged, Key? key})
+      : super(key: key);
 
   @override
   _FrequencySelectorState createState() => _FrequencySelectorState();
@@ -27,7 +29,7 @@ class _FrequencySelectorState extends State<FrequencySelector> {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<Frequency>(
       value: _selectedFrequency,
-      decoration: InputDecoration(labelText: 'Frequency'),
+      decoration: const InputDecoration(labelText: 'Frequency'),
       items: Frequency.values.map((Frequency freq) {
         return DropdownMenuItem<Frequency>(
           value: freq,
@@ -36,8 +38,8 @@ class _FrequencySelectorState extends State<FrequencySelector> {
       }).toList(),
       onChanged: (Frequency? newValue) {
         setState(() {
-          _selectedFrequency = newValue!;
-          widget.onFrequencyChanged(newValue);
+          _selectedFrequency = newValue ?? Frequency.Daily;
+          widget.onFrequencyChanged(_selectedFrequency);
         });
       },
     );

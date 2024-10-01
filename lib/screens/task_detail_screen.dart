@@ -11,25 +11,16 @@ class TaskDetailScreen extends StatelessWidget {
   final String taskId;
 
   // Constructor requires taskId
-  TaskDetailScreen({required this.taskId});
+  const TaskDetailScreen({required this.taskId, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final taskProvider = Provider.of<TaskProvider>(context);
-    Task? task;
-    try {
-      task = taskProvider.tasks.firstWhere((t) => t.id == taskId);
-    } catch (e) {
-      try {
-        task = taskProvider.routines.firstWhere((t) => t.id == taskId);
-      } catch (e) {
-        task = null;
-      }
-    }
+    final Task? task = _findTask(taskProvider, taskId);
 
     if (task == null) {
       return Scaffold(
-        appBar: AppBar(title: Text('Task Not Found')),
+        appBar: AppBar(title: const Text('Task Not Found')),
         body: Center(child: Text('Task with ID $taskId not found.')),
       );
     }
@@ -39,7 +30,7 @@ class TaskDetailScreen extends StatelessWidget {
         title: Text(task.title),
         actions: [
           IconButton(
-            icon: Icon(Icons.edit),
+            icon: const Icon(Icons.edit),
             onPressed: () {
               Navigator.pushNamed(
                 context,
@@ -49,7 +40,7 @@ class TaskDetailScreen extends StatelessWidget {
             },
           ),
           IconButton(
-            icon: Icon(Icons.delete),
+            icon: const Icon(Icons.delete),
             onPressed: () {
               _confirmDelete(context, taskProvider, task.id);
             },
@@ -57,30 +48,30 @@ class TaskDetailScreen extends StatelessWidget {
         ],
       ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
             Text(
               task.description,
-              style: TextStyle(fontSize: 16.0),
+              style: const TextStyle(fontSize: 16.0),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             // Display additional task details here
             Row(
               children: [
                 Text('Priority: ${priorityText(task.priority)}'),
-                SizedBox(width: 20),
+                const SizedBox(width: 20),
                 Text('Status: ${task.isCompleted ? "Completed" : "Pending"}'),
               ],
             ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             if (task.hasAlarm && task.scheduledTime != null)
               Row(
                 children: [
                   Text('Scheduled Time: ${task.scheduledTime!.toLocal()}'),
                 ],
               ),
-            SizedBox(height: 10),
+            const SizedBox(height: 10),
             // Display subtasks
             if (task.subtasks.isNotEmpty)
               Expanded(
@@ -89,9 +80,10 @@ class TaskDetailScreen extends StatelessWidget {
                     return CheckboxListTile(
                       value: subtask.isCompleted,
                       onChanged: (bool? value) {
-                        // Toggle subtask completion
-                        subtask.isCompleted = value ?? false;
-                        taskProvider.updateTask(task);
+                        if (value != null) {
+                          subtask.isCompleted = value;
+                          taskProvider.updateTask(task);
+                        }
                       },
                       title: Text(subtask.title),
                     );
@@ -99,36 +91,47 @@ class TaskDetailScreen extends StatelessWidget {
                 ),
               ),
             // Stopwatch Widget (if needed)
-            if (!task.isCompleted)
-              StopwatchWidget(),
-            // Add more widgets as needed
+            if (!task.isCompleted) StopwatchWidget(),
           ],
         ),
       ),
     );
   }
 
-  void _confirmDelete(BuildContext context, TaskProvider taskProvider, String taskId) {
+  Task? _findTask(TaskProvider taskProvider, String taskId) {
+    try {
+      return taskProvider.tasks.firstWhere((t) => t.id == taskId);
+    } catch (e) {
+      try {
+        return taskProvider.routines.firstWhere((t) => t.id == taskId);
+      } catch (e) {
+        return null;
+      }
+    }
+  }
+
+  void _confirmDelete(
+      BuildContext context, TaskProvider taskProvider, String taskId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Delete Task'),
-          content: Text('Are you sure you want to delete this task?'),
+          title: const Text('Delete Task'),
+          content: const Text('Are you sure you want to delete this task?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Cancel
               },
-              child: Text('Cancel'),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
                 taskProvider.deleteTask(taskId);
                 Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Go back to home
+                Navigator.of(context).pop(); // Go back to previous screen
               },
-              child: Text('Delete'),
+              child: const Text('Delete'),
             ),
           ],
         );
